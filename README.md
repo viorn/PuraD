@@ -12,6 +12,9 @@ make iso TARGET=trixie
 # Собрать ISO для sid
 make iso TARGET=sid
 
+# Проверить загрузку ISO в qemu (BIOS + UEFI)
+make test TARGET=trixie
+
 # Очистить артефакты
 make clean
 

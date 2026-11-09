@@ -51,6 +51,21 @@ IMAGE="localhost/purad-builder:${TARGET}"
 BASE="debian:${TARGET}"
 WORK_DIR="${REPO_DIR}/builds/${TARGET}"
 
+# --- Отпечатки конфига: чтобы `make iso` после правки конфигов не собирал
+# старый образ из закэшированных стадий live-build ---
+# chroot-хеш: то, что влияет на содержимое корня live-системы;
+# binary-хеш: загрузчики, ISO-инклюды, имя образа.
+hash_paths() {
+    (
+        cd "${REPO_DIR}"
+        for path in "$@"; do
+            [ -e "${path}" ] && find "${path}" -type f
+        done
+    ) | sort | xargs -r sha256sum | sha256sum | awk '{ print $1 }'
+}
+CHROOT_HASH="$(hash_paths config/common config/package-lists config/hooks config/includes.chroot profiles)"
+BINARY_HASH="$(hash_paths config/common config/bootloaders config/includes.binary profiles VERSION)"
+
 echo "== PuraD build =="
 echo "  профиль:   ${TARGET}"
 echo "  версия:    ${VERSION}"
@@ -85,6 +100,8 @@ set +e
 podman run --rm --privileged \
     -v "${WORK_DIR}:/work:Z" \
     -v "${REPO_DIR}/scripts:/purad-scripts:ro,Z" \
+    -e "PURAD_CHROOT_HASH=${CHROOT_HASH}" \
+    -e "PURAD_BINARY_HASH=${BINARY_HASH}" \
     -w /work \
     "${IMAGE}" \
     bash -eux /purad-scripts/inside-build.sh "${TARGET}" ${LB_ARGS} \

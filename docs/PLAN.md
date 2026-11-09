@@ -126,9 +126,13 @@ git init, каталоги, `VERSION`, `Makefile`, `.gitignore`, README с оп�
 `config/common`, `config/bootstrap`: зеркало `deb.debian.org`, компоненты
 `main contrib non-free-firmware`, `--installer=false`, `--mode debian`.
 Пакеты: `linux-image-amd64`, `live-boot`, `live-config-systemd`.
-Проверка загрузки в qemu (при отсутствии — установить `qemu-system-x86` и `ovmf`).
+Проверка загрузки в qemu (при отсутствии — установить `qemu-system-x86` и `ovmf`):
+`scripts/test-boot.sh <target> --all` (он же `make test`). В bootappend добавлены
+`console=tty0 console=ttyS0,115200n8`, чтобы live-сессия была видна в headless-qemu;
+вход — умолчания live-config (`user` / `live`).
 
-**Готово, когда:** ISO грузится в qemu (BIOS и UEFI) до root-shell live-сессии.
+**Готово, когда:** ISO грузится в qemu (BIOS и UEFI) до shell live-сессии.
+Оба режима проверены: `make test TARGET=trixie`.
 
 ### Этап 4. KDE Plasma 6 (Core) + X11
 

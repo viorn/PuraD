@@ -68,8 +68,10 @@ LB_ISO_VOLUME="PURAD"
 
 # --- Параметры загрузки live-сессии ---
 # X11 фиксируется хуком SDDM (Этап 4); здесь только поведение ядра/live-boot.
-LB_BOOTAPPEND_LIVE="boot=live components splash"
-LB_BOOTAPPEND_LIVE_FAILSAFE="boot=live components nomodeset"
+# console=ttyS0 — serial-консоль для headless-проверок в qemu (scripts/test-boot.sh);
+# последний console= становится /dev/console, поэтому tty0 идёт до ttyS0.
+LB_BOOTAPPEND_LIVE="boot=live components splash console=tty0 console=ttyS0,115200n8"
+LB_BOOTAPPEND_LIVE_FAILSAFE="boot=live components nomodeset console=tty0 console=ttyS0,115200n8"
 
 # --- Сборка только внутри контейнера, интерактив не нужен ---
 LB_INTERACTIVE="false"

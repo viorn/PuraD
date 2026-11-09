@@ -70,28 +70,65 @@ echo "  updates: ${UPDATES}"
 echo "  archive-areas: ${ARCHIVE_AREAS}"
 echo "  image-name: ${IMAGE_NAME}"
 
-lb config \
-    --architecture amd64 \
-    --mode debian \
-    --distribution "${LB_DISTRIBUTION}" \
-    --archive-areas "${ARCHIVE_AREAS}" \
-    --parent-archive-areas "${PARENT_ARCHIVE_AREAS}" \
-    --mirror-bootstrap "${MIRROR_BOOTSTRAP}" \
-    --mirror-chroot "${MIRROR_DEBIAN}" \
-    --mirror-binary "${MIRROR_DEBIAN}" \
-    --parent-mirror-bootstrap "${MIRROR_PARENT_BOOTSTRAP}" \
-    --parent-mirror-chroot "${MIRROR_PARENT}" \
-    --parent-mirror-binary "${MIRROR_PARENT}" \
-    "${MIRROR_ARGS[@]}" \
-    --security "${ENABLE_SECURITY}" \
-    --updates "${UPDATES}" \
-    --image-name "${IMAGE_NAME}"
+run_lb_config() {
+    lb config \
+        --architecture amd64 \
+        --mode debian \
+        --distribution "${LB_DISTRIBUTION}" \
+        --archive-areas "${ARCHIVE_AREAS}" \
+        --parent-archive-areas "${PARENT_ARCHIVE_AREAS}" \
+        --mirror-bootstrap "${MIRROR_BOOTSTRAP}" \
+        --mirror-chroot "${MIRROR_DEBIAN}" \
+        --mirror-binary "${MIRROR_DEBIAN}" \
+        --parent-mirror-bootstrap "${MIRROR_PARENT_BOOTSTRAP}" \
+        --parent-mirror-chroot "${MIRROR_PARENT}" \
+        --parent-mirror-binary "${MIRROR_PARENT}" \
+        "${MIRROR_ARGS[@]}" \
+        --security "${ENABLE_SECURITY}" \
+        --updates "${UPDATES}" \
+        --image-name "${IMAGE_NAME}"
+}
+
+# Определяем, изменился ли конфиг с прошлой успешной сборки. Без этого
+# live-build видит старые stage-файлы и молча собирает образ из кэша.
+STAMP_FILE=".purad-config-hashes"
+CLEAN_MODE=""
+if [ -f "${STAMP_FILE}" ]; then
+    read -r OLD_CHROOT OLD_BINARY < "${STAMP_FILE}" || true
+    if [ "${PURAD_CHROOT_HASH:-}" != "${OLD_CHROOT:-}" ]; then
+        CLEAN_MODE="full"
+    elif [ "${PURAD_BINARY_HASH:-}" != "${OLD_BINARY:-}" ]; then
+        CLEAN_MODE="binary"
+    fi
+elif [ -d binary ] || [ -d chroot ]; then
+    # Рабочий каталог от сборки без отпечатков — пересобираем начисто.
+    CLEAN_MODE="full"
+fi
+
+if [ -n "${CLEAN_MODE}" ]; then
+    echo "=== конфиг изменился: чистка (${CLEAN_MODE}) ==="
+fi
+
+run_lb_config
+
+# Чистим ПОСЛЕ lb config: иначе lb clean не знает LB_IMAGE_NAME и не удалит
+# старый ISO, а stage-файл config будет потерян.
+if [ "${CLEAN_MODE}" = "full" ]; then
+    lb clean
+    # Кэш chroot содержит старый набор файлов — убираем, пакеты (cache/packages.*)
+    # и bootstrap-кэш сохраняются.
+    rm -rf cache/chroot
+    run_lb_config
+elif [ "${CLEAN_MODE}" = "binary" ]; then
+    lb clean --binary
+    run_lb_config
+fi
 
 echo "=== Effective config (LB_*) ==="
 grep -h '^LB_' config/common config/bootstrap config/chroot config/binary 2>/dev/null | sort || true
 
-echo "=== package_lists ==="
-ls -1 config/package_lists/chroot/ 2>/dev/null || echo "(пусто)"
+echo "=== package-lists ==="
+ls -1 config/package-lists/chroot/ 2>/dev/null || echo "(пусто)"
 
 # Быстрая проверка синтаксиса конфига без долгой сборки:
 #   podman run ... -e PURAD_CONFIG_ONLY=1 ...
@@ -102,6 +139,8 @@ fi
 
 echo "=== lb build ==="
 lb build
+
+printf '%s %s\n' "${PURAD_CHROOT_HASH:-none}" "${PURAD_BINARY_HASH:-none}" > "${STAMP_FILE}"
 
 echo "=== артефакты ==="
 ls -lh ./*.iso ./*.sha256 ./SHA256SUMS ./manifest* 2>/dev/null || true

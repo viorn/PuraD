@@ -1,4 +1,4 @@
-.PHONY: help iso clean clean-images
+.PHONY: help iso test clean clean-images
 
 TARGET ?= trixie
 VERSION := $(shell cat VERSION)
@@ -10,6 +10,7 @@ help:
 	@echo
 	@echo "Использование:"
 	@echo "  make iso TARGET=trixie|sid   — собрать ISO"
+	@echo "  make test TARGET=trixie|sid  — загрузить ISO в qemu (BIOS+UEFI)"
 	@echo "  make clean                   — удалить артефакты сборки (builds/)"
 	@echo "  make clean-images            — удалить образы сборщика podman"
 	@echo "  make help                    — показать эту справку"
@@ -19,6 +20,9 @@ help:
 
 iso:
 	@bash scripts/build.sh $(TARGET)
+
+test:
+	@bash scripts/test-boot.sh $(TARGET) --all
 
 # В rootless podman часть файлов в chroot создаётся под subuid-пользователями
 # контейнера (например, _apt), поэтому из хостового пользователя `rm` упирается
