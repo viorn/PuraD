@@ -1,15 +1,21 @@
 #!/bin/sh
-# config/common — общие настройки live-build для всех релизов.
+# config/common — статические настройки live-build для всех релизов.
 #
-# Различия релиза (дистрибутив, зеркала, пиннинг apt) — в profiles/<target>.conf,
-# который подключается через `lb config noauto -c profiles/<target>.conf`.
-# Здесь переменные релиза НЕ дублируются, иначе они перезатрут профиль
-# (config/common загружается после --conffile).
+# live-build ПЕРЕД разбором аргументов `lb config` читает config/common как
+# «сохранённую конфигурацию» (см. /usr/share/live/build/functions/conffile.sh).
+# Поэтому значения отсюда применяются без дублирования флагов в
+# scripts/inside-build.sh: там передаются только различия релиза
+# (дистрибутив, зеркала, security) и вычисляемые параметры (имя образа).
 #
-# Имена LB_* сверены с live-build 1:20250505+deb13u1 (trixie).
+# Имена переменных — канонические LB_* из live-build 1:20250505+deb13u1.
+# Внимание: CLI-флаг --binary-image соответствует переменной LB_IMAGE_TYPE
+# (а не LB_BINARY_IMAGES), а ядро задаётся парой LB_LINUX_PACKAGES +
+# LB_LINUX_FLAVOURS_WITH_ARCH — live-build сам добавляет -<flavour>.
+#
+# Различия релиза — только в profiles/<target>.conf.
 
 # --- Архитектура и режим ---
-LB_ARCHITECTURES="amd64"
+LB_ARCHITECTURE="amd64"
 LB_MODE="debian"
 
 # --- Компоненты архива: только официальные ---
@@ -17,12 +23,8 @@ LB_MODE="debian"
 LB_ARCHIVE_AREAS="main contrib non-free-firmware"
 LB_PARENT_ARCHIVE_AREAS="main contrib non-free-firmware"
 
-# --- Прошивки в образе (иначе Wi-Fi в live-сессии не поднимается) ---
-LB_FIRMWARE_CHROOT="true"
-LB_FIRMWARE_BINARY="false"
-
 # --- Бинарный образ: гибридный ISO (BIOS + UEFI) ---
-LB_BINARY_IMAGES="iso-hybrid"
+LB_IMAGE_TYPE="iso-hybrid"
 LB_BINARY_FILESYSTEM="fat32"
 LB_BOOTLOADERS="syslinux grub-efi"
 LB_CHROOT_FILESYSTEM="squashfs"
@@ -34,11 +36,25 @@ LB_INITSYSTEM="systemd"
 LB_DEBIAN_INSTALLER="none"
 
 # --- Ядро ---
-LB_LINUX_PACKAGES="linux-image-amd64"
+# live-build подставит flavour сам: linux-image + amd64 = linux-image-amd64.
+LB_LINUX_PACKAGES="linux-image"
+
+# --- Прошивки ---
+# LB_FIRMWARE_CHROOT=true заставляет live-build собрать список всех firmware-*
+# из archive-areas и установить их в chroot (Этап 5).
+LB_FIRMWARE_CHROOT="true"
+LB_FIRMWARE_BINARY="false"
+
+# --- APT ---
+LB_APT_INDICES="false"
+LB_APT_RECOMMENDS="true"
+LB_APT_SECURE="true"
+LB_APT_SOURCE_ARCHIVES="false"
 
 # --- Кэш для итеративной сборки ---
 LB_CACHE="true"
 LB_CACHE_PACKAGES="true"
+LB_CACHE_INDICES="false"
 LB_CACHE_STAGES="bootstrap chroot"
 
 # --- Контрольные суммы файлов на образе ---
@@ -46,16 +62,15 @@ LB_CHECKSUMS="sha256"
 
 # --- Брендинг PuraD (рабочее имя: менять только здесь и в branding/) ---
 LB_ISO_APPLICATION="PuraD"
-LB_ISO_PREPARER="PuraD <deked@localhost>"
-LB_ISO_PUBLISHER="PuraD"
-LB_ISO_VOLUME="PURA_D"
+LB_ISO_PREPARER="PuraD Project"
+LB_ISO_PUBLISHER="PuraD Project"
+LB_ISO_VOLUME="PURAD"
 
 # --- Параметры загрузки live-сессии ---
-# X11 фиксировано хуком SDDM (Этап 4), здесь только поведение консоли.
-LB_BOOTAPPEND_LIVE="splash"
-LB_BOOTAPPEND_LIVE_FAILSAFE="nomodeset"
+# X11 фиксируется хуком SDDM (Этап 4); здесь только поведение ядра/live-boot.
+LB_BOOTAPPEND_LIVE="boot=live components splash"
+LB_BOOTAPPEND_LIVE_FAILSAFE="boot=live components nomodeset"
 
 # --- Сборка только внутри контейнера, интерактив не нужен ---
 LB_INTERACTIVE="false"
-LB_APT_SECURE="true"
-LB_APT_RECOMMENDS="true"
+LB_UTC_TIME="true"

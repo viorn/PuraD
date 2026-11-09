@@ -83,8 +83,7 @@ deked/                        # каталог репозитория; имя д
 ├── config/                   # дерево live-build
 │   ├── common                # LB_ARCHITECTURES, LB_MODE, LB_BOOTLOADER, ...
 │   ├── bootstrap             # зеркало, дистрибутив, компоненты
-│   ├── apt/                  # sources.list.chroot, preferences.chroot
-│   ├── package_lists/chroot/ # 000-base, 100-kde, 200-live, 300-installer, 400-firmware
+│   ├── package-lists/chroot/ # 000-base, 100-kde, 200-live, 300-installer, 400-firmware
 │   ├── hooks/                # chroot-хуки: брендинг, конфиги, systemd
 │   ├── includes.chroot/      # /etc/skel KDE, /etc/calamares, polkit, /etc/os-release
 │   ├── includes.binary/      # тема загрузчика
@@ -176,7 +175,8 @@ git init, каталоги, `VERSION`, `Makefile`, `.gitignore`, README с оп�
 ### Этап 8. Профиль sid
 
 `profiles/sid.conf`, сборка в контейнере `debian:sid`, пиннинг apt на снимок
-`snapshot.debian.org` (через `config/apt/preferences.chroot` + pin по origin).
+`snapshot.debian.org` (через `config/archives/*.pref.chroot` + pin по origin;
+live-build не поддерживает `config/apt/preferences.chroot`).
 Устранение расхождений: имена пакетов KDE, live-boot, calamares.
 
 **Готово, когда:** sid-ISO грузится, Calamares проходит установку так же, как trixie.

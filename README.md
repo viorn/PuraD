@@ -33,8 +33,7 @@ deked/
 ├── config/                   # дерево live-build
 │   ├── common                # файл с LB_* переменными
 │   ├── bootstrap             # файл: зеркало, дистрибутив, компоненты
-│   ├── apt/
-│   ├── package_lists/chroot/
+│   ├── package-lists/chroot/
 │   ├── hooks/
 │   ├── includes.chroot/
 │   ├── includes.binary/

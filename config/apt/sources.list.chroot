@@ -1,6 +1,0 @@
-# config/apt/sources.list.chroot
-# Источники APT для chroot live-build.
-# Заполняется автоматически на основе профиля и archive-areas.
-
-deb http://deb.debian.org/debian trixie main contrib non-free-firmware
-deb http://deb.debian.org/debian-security trixie-security main contrib non-free-firmware

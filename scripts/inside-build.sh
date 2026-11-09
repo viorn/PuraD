@@ -3,10 +3,13 @@
 #
 # Использование: inside-build.sh <trixie|sid>
 #
-# Профиль различий релизов (profiles/<target>.conf) загружается здесь и
-# подставляется в `lb config` флагами. Имена флагов соответствуют
-# live-build 1:20250505+deb13u1 (man lb_config(1)); после первого успешного
-# `lb config` сверять через `lb config --dump`.
+# Здесь — ТОЛЬКО различия релиза и вычисляемые параметры. Статические
+# настройки (архитектура, образ, ядро, APT, кэш, брендинг) живут в
+# config/common: live-build читает его из рабочего каталога до разбора
+# аргументов `lb config`.
+#
+# Имена флагов соответствуют live-build 1:20250505+deb13u1 (man lb_config(1));
+# сверить действующие значения — `make iso ... && grep '^LB_' builds/<target>/config/*`.
 
 set -euo pipefail
 
@@ -36,6 +39,7 @@ MIRROR_PARENT_SECURITY="${LB_PARENT_MIRROR_SECURITY-${MIRROR_SECURITY}}"
 MIRROR_PARENT_BOOTSTRAP="${LB_PARENT_MIRROR_BOOTSTRAP-${MIRROR_PARENT}}"
 ARCHIVE_AREAS="${LB_ARCHIVE_AREAS-main contrib non-free-firmware}"
 PARENT_ARCHIVE_AREAS="${LB_PARENT_ARCHIVE_AREAS-${ARCHIVE_AREAS}}"
+UPDATES="${LB_UPDATES-true}"
 
 # Пустое security-зеркало = security-архива нет (случай sid). Тогда
 # --security false, а пустые строки в live-build передавать нельзя — он
@@ -53,14 +57,21 @@ else
     MIRROR_ARGS=()
 fi
 
+# Имя ISO: PuraD-<target>-<version>, как в Makefile. Иначе live-build
+# выдаст live-image-amd64.hybrid.iso.
+VERSION="$(tr -d '[:space:]' < VERSION)"
+IMAGE_NAME="PuraD-${TARGET}-${VERSION}"
+
 echo "=== lb config: target=${TARGET} distribution=${LB_DISTRIBUTION} ==="
 echo "  bootstrap mirror: ${MIRROR_BOOTSTRAP}"
 echo "  chroot/binary mirror: ${MIRROR_DEBIAN}"
 echo "  security: ${ENABLE_SECURITY} (${MIRROR_SECURITY:-<нет security-архива>})"
+echo "  updates: ${UPDATES}"
 echo "  archive-areas: ${ARCHIVE_AREAS}"
+echo "  image-name: ${IMAGE_NAME}"
 
 lb config \
-    --architecture "${LB_ARCHITECTURES:-amd64}" \
+    --architecture amd64 \
     --mode debian \
     --distribution "${LB_DISTRIBUTION}" \
     --archive-areas "${ARCHIVE_AREAS}" \
@@ -73,39 +84,21 @@ lb config \
     --parent-mirror-binary "${MIRROR_PARENT}" \
     "${MIRROR_ARGS[@]}" \
     --security "${ENABLE_SECURITY}" \
-    --updates "${LB_UPDATES-true}" \
-    --binary-image iso-hybrid \
-    --bootloaders "syslinux grub-efi" \
-    --chroot-filesystem squashfs \
-    --chroot-squashfs-compression-type zstd \
-    --initramfs live-boot \
-    --initsystem systemd \
-    --linux-packages "${LB_LINUX_PACKAGES:-linux-image-amd64}" \
-    --firmware-chroot true \
-    --firmware-binary false \
-    --debian-installer none \
-    --apt-indices false \
-    --apt-recommends true \
-    --apt-secure true \
-    --cache true \
-    --cache-packages true \
-    --cache-indices false \
-    --cache-stages "bootstrap chroot" \
-    --checksums sha256 \
-    --iso-application "PuraD ${LB_DISTRIBUTION}" \
-    --iso-preparer "PuraD Project" \
-    --iso-publisher "PuraD Project" \
-    --iso-volume "PuraD ${LB_DISTRIBUTION}" \
-    --bootappend-live "boot=live components splash" \
-    --bootappend-live-failsafe "boot=live components nomodeset"
+    --updates "${UPDATES}" \
+    --image-name "${IMAGE_NAME}"
 
-echo "===Effective config (LB_*)==="
+echo "=== Effective config (LB_*) ==="
 grep -h '^LB_' config/common config/bootstrap config/chroot config/binary 2>/dev/null | sort || true
 
-# config/apt/preferences.chroot живёт в git и lb его подхватывает сам —
-# здесь ничего не копируем.
 echo "=== package_lists ==="
-ls -1 config/package_lists/chroot/ 2>/dev/null || echo "(пусто — заполняется на этапах 3–5)"
+ls -1 config/package_lists/chroot/ 2>/dev/null || echo "(пусто)"
+
+# Быстрая проверка синтаксиса конфига без долгой сборки:
+#   podman run ... -e PURAD_CONFIG_ONLY=1 ...
+if [ "${PURAD_CONFIG_ONLY:-0}" = "1" ]; then
+    echo "=== PURAD_CONFIG_ONLY=1: останавливаюсь после lb config ==="
+    exit 0
+fi
 
 echo "=== lb build ==="
 lb build

@@ -1,0 +1,7 @@
+# 000-base — минимальная база live-системы.
+# Ядро (linux-image-amd64) добавляется live-build сам через LB_LINUX_PACKAGES.
+# Полноценный состав — Этап 3 (100-kde, 200-live, ...).
+
+live-boot
+live-config-systemd
+systemd-sysv
