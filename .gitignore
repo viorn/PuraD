@@ -1,0 +1,17 @@
+# Артефакты сборки
+builds/
+
+# Временные файлы live-build
+config/.cache/
+config/chroot*
+config/stage*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db

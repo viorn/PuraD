@@ -1,0 +1,61 @@
+#!/bin/sh
+# config/common — общие настройки live-build для всех релизов.
+#
+# Различия релиза (дистрибутив, зеркала, пиннинг apt) — в profiles/<target>.conf,
+# который подключается через `lb config noauto -c profiles/<target>.conf`.
+# Здесь переменные релиза НЕ дублируются, иначе они перезатрут профиль
+# (config/common загружается после --conffile).
+#
+# Имена LB_* сверены с live-build 1:20250505+deb13u1 (trixie).
+
+# --- Архитектура и режим ---
+LB_ARCHITECTURES="amd64"
+LB_MODE="debian"
+
+# --- Компоненты архива: только официальные ---
+# contrib нужен для b43-обвязки, non-free-firmware — для Wi-Fi/GPU/NVMe.
+LB_ARCHIVE_AREAS="main contrib non-free-firmware"
+LB_PARENT_ARCHIVE_AREAS="main contrib non-free-firmware"
+
+# --- Прошивки в образе (иначе Wi-Fi в live-сессии не поднимается) ---
+LB_FIRMWARE_CHROOT="true"
+LB_FIRMWARE_BINARY="false"
+
+# --- Бинарный образ: гибридный ISO (BIOS + UEFI) ---
+LB_BINARY_IMAGES="iso-hybrid"
+LB_BINARY_FILESYSTEM="fat32"
+LB_BOOTLOADERS="syslinux grub-efi"
+LB_CHROOT_FILESYSTEM="squashfs"
+LB_CHROOT_SQUASHFS_COMPRESSION_TYPE="zstd"
+LB_INITRAMFS="live-boot"
+LB_INITSYSTEM="systemd"
+
+# --- debian-installer не включаем: ставим Calamares (Этап 6) ---
+LB_DEBIAN_INSTALLER="none"
+
+# --- Ядро ---
+LB_LINUX_PACKAGES="linux-image-amd64"
+
+# --- Кэш для итеративной сборки ---
+LB_CACHE="true"
+LB_CACHE_PACKAGES="true"
+LB_CACHE_STAGES="bootstrap chroot"
+
+# --- Контрольные суммы файлов на образе ---
+LB_CHECKSUMS="sha256"
+
+# --- Брендинг PuraD (рабочее имя: менять только здесь и в branding/) ---
+LB_ISO_APPLICATION="PuraD"
+LB_ISO_PREPARER="PuraD <deked@localhost>"
+LB_ISO_PUBLISHER="PuraD"
+LB_ISO_VOLUME="PURA_D"
+
+# --- Параметры загрузки live-сессии ---
+# X11 фиксировано хуком SDDM (Этап 4), здесь только поведение консоли.
+LB_BOOTAPPEND_LIVE="splash"
+LB_BOOTAPPEND_LIVE_FAILSAFE="nomodeset"
+
+# --- Сборка только внутри контейнера, интерактив не нужен ---
+LB_INTERACTIVE="false"
+LB_APT_SECURE="true"
+LB_APT_RECOMMENDS="true"
