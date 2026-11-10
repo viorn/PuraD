@@ -95,6 +95,24 @@ if [ "${INSTALLER}" -eq 1 ]; then
         echo "  ожидался ${REPO_DIR_IDX}" >&2
         echo "  установка загрузчика (grub-efi/grub-pc) потребует сети" >&2
     fi
+
+    # Шаг packages удаляет из установленной системы live-* пакеты. Если такого
+    # пакета в образе нет, apt-get remove завершается с кодом 100 и установка
+    # обрывается («Ошибка менеджера пакетов» — так падало на live-task-*).
+    PACKAGES_CONF="${REPO_DIR}/config/includes.chroot/etc/calamares/modules/packages.conf"
+    LIVE_PACKAGES="${REPO_DIR}/builds/${TARGET}/chroot.packages.live"
+    if [ -f "${PACKAGES_CONF}" ] && [ -f "${LIVE_PACKAGES}" ]; then
+        missing=""
+        while IFS= read -r pkg; do
+            [ -n "${pkg}" ] || continue
+            grep -qE "^${pkg}[[:space:]]" "${LIVE_PACKAGES}" || missing="${missing} ${pkg}"
+        done < <(sed -n 's/^ *- \([a-z0-9][a-z0-9.+_-]*\)$/\1/p' "${PACKAGES_CONF}")
+        if [ -n "${missing}" ]; then
+            echo "ошибка: установщик удаляет пакеты, которых нет в образе:${missing}" >&2
+            echo "  apt-get remove вернёт 100, установка упадёт на шаге packages" >&2
+            exit 1
+        fi
+    fi
 fi
 
 command -v qemu-system-x86_64 >/dev/null || {
