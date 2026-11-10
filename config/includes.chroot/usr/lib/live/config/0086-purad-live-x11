@@ -31,8 +31,22 @@ Init ()
 
 Config ()
 {
-	mkdir -p /etc/sddm.conf.d
+	# 0085-sddm пишет /etc/sddm.conf с Session=plasma.desktop (он определяет
+	# сессию по /usr/bin/x-session-manager → startplasma-x11). Этот файл SDDM
+	# читает последним, и он перекрывает всё из sddm.conf.d/*, поэтому править
+	# только drop-in бесполезно: SDDM пишет в лог
+	#   Unable to find autologin session entry "plasma.desktop"
+	# (файл сессии мы отключаем ниже) и показывает greeter вместо Plasma.
+	# Поэтому переписываем /etc/sddm.conf целиком, а drop-in оставляем как
+	# декларацию — на случай, если порядок чтения в другой версии SDDM иной.
+	cat > /etc/sddm.conf <<EOF
+[Autologin]
+User=${LIVE_USERNAME:-user}
+Session=plasmax11
+Relogin=false
+EOF
 
+	mkdir -p /etc/sddm.conf.d
 	cat > /etc/sddm.conf.d/zz-purad-live-x11.conf <<EOF
 [Autologin]
 User=${LIVE_USERNAME:-user}
