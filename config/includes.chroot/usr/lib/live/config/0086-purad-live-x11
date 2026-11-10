@@ -1,0 +1,55 @@
+#!/bin/sh
+# 0086-purad-live-x11 — фиксация X11 в live-сессии.
+#
+# Компонент live-config (запускается только при boot=live, поэтому на
+# установленной системе ничего не меняет):
+#   1. перекрывает /etc/sddm.conf от 0085-sddm и выбирает сессию plasmax11;
+#   2. прячет Wayland-сессии из greeter live-режима (.desktop.disabled).
+#
+# Файл кладётся в образ через config/includes.chroot; нумерация 0086 гарантирует
+# запуск после 0085-sddm.
+
+. /usr/lib/live/config.sh
+
+Cmdline ()
+{
+	:
+}
+
+Init ()
+{
+	if ! pkg_is_installed "sddm"; then
+		exit 0
+	fi
+
+	if component_was_executed "purad-live-x11"; then
+		exit 0
+	fi
+
+	echo -n " purad-live-x11"
+}
+
+Config ()
+{
+	mkdir -p /etc/sddm.conf.d
+
+	cat > /etc/sddm.conf.d/zz-purad-live-x11.conf <<EOF
+[Autologin]
+User=${LIVE_USERNAME:-user}
+Session=plasmax11
+Relogin=false
+EOF
+
+	# В live-режиме оставляем только X11-сессию. На установленном диске
+	# файлы остаются нетронутыми: правка живёт в overlay.
+	for _desktop in /usr/share/wayland-sessions/*.desktop; do
+		[ -e "${_desktop}" ] || continue
+		mv "${_desktop}" "${_desktop}.disabled"
+	done
+
+	touch /var/lib/live/config/purad-live-x11
+}
+
+Cmdline
+Init
+Config

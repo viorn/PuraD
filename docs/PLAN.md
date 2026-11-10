@@ -69,6 +69,15 @@ Live-дистрибутив на базе чистого Debian: liveCD с KDE P
 - Ограничение касается только live-сессии; на установленном диске SDDM предлагает
   обе сессии.
 
+Реализация — компонент live-config
+`config/includes.chroot/usr/lib/live/config/0086-purad-live-x11`: он выполняется
+после штатного `0085-sddm` и перекрывает его, записывая
+`/etc/sddm.conf.d/zz-purad-live-x11.conf` (`[Autologin] Session=plasmax11`)
+и переименовывая `/usr/share/wayland-sessions/*.desktop` в `*.disabled`.
+Штатный `0085-sddm` выбирает `Session=` по `realpath $(which x-session-manager)`,
+а `x-session-manager` может указывать на Wayland-сессию, поэтому полагаться
+на него нельзя.
+
 ## 3. Структура репозитория
 
 ```
@@ -83,7 +92,7 @@ deked/                        # каталог репозитория; имя д
 ├── config/                   # дерево live-build
 │   ├── common                # LB_ARCHITECTURES, LB_MODE, LB_BOOTLOADER, ...
 │   ├── bootstrap             # зеркало, дистрибутив, компоненты
-│   ├── package-lists/chroot/ # 000-base, 100-kde, 200-live, 300-installer, 400-firmware
+│   ├── package-lists/        # 000-base.list.chroot, 100-kde.list.chroot, ...
 │   ├── hooks/                # chroot-хуки: брендинг, конфиги, systemd
 │   ├── includes.chroot/      # /etc/skel KDE, /etc/calamares, polkit, /etc/os-release
 │   ├── includes.binary/      # тема загрузчика
@@ -144,6 +153,13 @@ git init, каталоги, `VERSION`, `Makefile`, `.gitignore`, README с оп�
 **Готово, когда:** live-образ загружается в Plasma на X11 с автологином;
 `echo $XDG_SESSION_TYPE` → `x11`; Wayland в списке сессий live-режима недоступен.
 
+Состав Core и фиксация X11 описаны в разделах «Состав Core» и «Фиксация X11
+в live-сессии». Проверено `make test TARGET=trixie` (BIOS и UEFI):
+SDDM автологинит `user` в сессию `Type=x11` (`/usr/share/xsessions/plasmax11.desktop`),
+`/usr/share/wayland-sessions/plasma.desktop` переименован в `.disabled`.
+Пресеты Plasma в `/etc/skel` — только `baloofilerc`; панель/тема/first-run
+wizard ещё не настроены.
+
 ### Этап 5. Максимальный охват Wi-Fi
 
 См. раздел «Охват Wi-Fi». Проверка: распаковка `filesystem.squashfs` из ISO и
@@ -200,7 +216,10 @@ live-build не поддерживает `config/apt/preferences.chroot`).
 3. **Sid mid-transition** — пиннинг на snapshot.debian.org (Этап 8), иначе сборка
    невоспроизводима.
 4. **Rootless podman**: `--privileged` может не дать монтировать proc/sys в chroot.
-   Фолбэк: rootful podman.
+   Фолбэк: rootful podman. Отдельная ловушка — `mknod` в rootless-контейнере
+   запрещён, поэтому в `chroot/dev` нет устройств и `/dev/null` — обычный файл;
+   лечится `mount --rbind /dev chroot/dev` на время chroot-стадии
+   (`scripts/inside-build.sh`, подробности в README).
 5. **b43**: postinst требует сеть; фиксируем прошивку в includes (Этап 5).
 6. **Plasma 6 в sid**: переходные версии (6.3 → 6.x) могут менять зависимости;
    лечится пиннингом снимка.

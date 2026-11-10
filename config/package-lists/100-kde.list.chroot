@@ -1,0 +1,36 @@
+# 100-kde — KDE Plasma 6 Core (v1).
+# Состав — docs/PLAN.md, «Состав Core (v1)»: plasma-desktop + базовые
+# приложения, без kde-full/plasma-discover. X11-сессия требует kwin-x11:
+# plasma-workspace зависит только от kwin-wayland.
+
+# --- Plasma ---
+plasma-desktop
+plasma-workspace
+kwin-x11
+plasma-nm
+systemsettings
+xdg-desktop-portal-kde
+plasma-pa
+powerdevil
+ksystemstats
+
+# --- Приложения ---
+dolphin
+konsole
+okular
+ark
+firefox-esr
+
+# --- Сессия/вход ---
+sddm
+
+# --- X11: live-CD жёстко на X11 (см. 0086-purad-live-x11) ---
+xserver-xorg
+xserver-xorg-video-vesa
+xserver-xorg-input-libinput
+
+# --- Шрифты и базовые утилиты ---
+fonts-dejavu-core
+fonts-noto-core
+fonts-noto-color-emoji
+xdg-user-dirs

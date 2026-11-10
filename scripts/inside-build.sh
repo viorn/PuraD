@@ -70,9 +70,17 @@ echo "  updates: ${UPDATES}"
 echo "  archive-areas: ${ARCHIVE_AREAS}"
 echo "  image-name: ${IMAGE_NAME}"
 
+# Необязательный кэширующий прокси (apt-cacher-ng и т.п.).
+PROXY_ARGS=()
+if [ -n "${PURAD_APT_PROXY:-}" ]; then
+    echo "  apt proxy: ${PURAD_APT_PROXY}"
+    PROXY_ARGS=(--apt-http-proxy "${PURAD_APT_PROXY}")
+fi
+
 run_lb_config() {
     lb config \
         --architecture amd64 \
+        "${PROXY_ARGS[@]}" \
         --mode debian \
         --distribution "${LB_DISTRIBUTION}" \
         --archive-areas "${ARCHIVE_AREAS}" \
@@ -93,7 +101,10 @@ run_lb_config() {
 # live-build видит старые stage-файлы и молча собирает образ из кэша.
 STAMP_FILE=".purad-config-hashes"
 CLEAN_MODE=""
-if [ -f "${STAMP_FILE}" ]; then
+if [ "${PURAD_FORCE_CLEAN:-0}" = "1" ]; then
+    # Аварийный пересбор с нуля (например, после падения посреди chroot-стадии).
+    CLEAN_MODE="full"
+elif [ -f "${STAMP_FILE}" ]; then
     read -r OLD_CHROOT OLD_BINARY < "${STAMP_FILE}" || true
     if [ "${PURAD_CHROOT_HASH:-}" != "${OLD_CHROOT:-}" ]; then
         CLEAN_MODE="full"
@@ -128,7 +139,7 @@ echo "=== Effective config (LB_*) ==="
 grep -h '^LB_' config/common config/bootstrap config/chroot config/binary 2>/dev/null | sort || true
 
 echo "=== package-lists ==="
-ls -1 config/package-lists/chroot/ 2>/dev/null || echo "(пусто)"
+ls -1 config/package-lists/ 2>/dev/null || echo "(пусто)"
 
 # Быстрая проверка синтаксиса конфига без долгой сборки:
 #   podman run ... -e PURAD_CONFIG_ONLY=1 ...
@@ -137,8 +148,107 @@ if [ "${PURAD_CONFIG_ONLY:-0}" = "1" ]; then
     exit 0
 fi
 
-echo "=== lb build ==="
-lb build
+# --- /dev в chroot ---
+#
+# На настоящем root-хосте debootstrap создаёт в chroot/dev реальные устройства
+# (mknod /dev/null, /dev/zero, /dev/urandom...). В rootless podman mknod
+# запрещён (EPERM даже с --privileged), поэтому в chroot/dev остаётся пустой
+# обычный файл null. Последствия не косметические: пакеты пишут в /dev/null
+# как в обычный файл, и мусор накапливается. Именно так падала установка
+# plasma на dictionaries-common → aspell-autobuildhash:
+#
+#   aspell --per-conf=/dev/null ...   (первый запуск: rc=0, но aspell
+#   сохраняет в per-conf строку "/usr/bin/aspell")
+#   → второй запуск читает её как конфиг:
+#   Error: /dev/null:1: The key "/usr/bin/aspell" is unknown.
+#
+# Поэтому на время стадий, где внутри chroot работают postinst-скрипты,
+# подкладываем /dev контейнера.
+#
+# ВАЖНО: именно --rbind, а не --bind. В контейнере /dev — это tmpfs, поверх
+# которого /dev/null, /dev/pts, /dev/shm примонтированы отдельными моунтами.
+# Нерекурсивный --bind копирует только сам tmpfs, и на месте /dev/null
+# оказывается его скрытая заглушка — обычный файл (тот самый баг).
+#
+# Директория chroot/dev на нижнем слое не меняется: после размонтирования там
+# снова пустой null, а в готовый образ /dev всё равно собирается заново
+# (lb binary_chroot).
+DEV_MOUNTED=0
+
+dev_mount() {
+    if [ ! -d chroot/dev ]; then
+        return 0
+    fi
+    if grep -qs " $(pwd)/chroot/dev " /proc/mounts; then
+        DEV_MOUNTED=1
+        return 0
+    fi
+    if mount --rbind /dev chroot/dev 2>/dev/null; then
+        DEV_MOUNTED=1
+        echo "--> chroot/dev: примонтирован /dev контейнера"
+    else
+        echo "предупреждение: не удалось примонтировать /dev в chroot/dev;" >&2
+        echo "  пакеты, пишущие в /dev/null, могут сломать установку" >&2
+    fi
+}
+
+dev_umount() {
+    if [ "${DEV_MOUNTED}" -eq 1 ]; then
+        umount -R chroot/dev 2>/dev/null || umount -l chroot/dev 2>/dev/null || true
+        DEV_MOUNTED=0
+    fi
+}
+
+# live-build сам размонтирует всё под chroot/ при выходе, но если сборка
+# прервётся (Ctrl-C, ошибка до Exit), моунт остался бы висеть.
+#
+# Пока /dev примонтирован, стадия chroot_cache работать не может:
+#   - restore делает `rm -rf chroot`, а на моунте получит EBUSY;
+#   - save делает `cp -a chroot cache/chroot`, а cp в rootless-контейнере не
+#     может создать копии файлов устройств:
+#     cp: cannot create special file 'cache/chroot/dev/null': Operation not permitted
+# Поэтому restore запускаем явно ДО моунта, а save — явно ПОСЛЕ размонтирования,
+# и на время `lb chroot` глушим оба шага stage-файлами (live-build умеет
+# пропускать шаги по наличию .build/<шаг>).
+CACHE_MARKERS=".build/chroot_cache.restore .build/chroot_cache.save"
+
+cleanup() {
+    # shellcheck disable=SC2086
+    rm -f ${CACHE_MARKERS}
+    dev_umount
+}
+trap 'cleanup' EXIT
+
+# `lb build` — это последовательность bootstrap → chroot → binary
+# (см. /usr/lib/live/build/build). Разбиваем её, чтобы успеть подложить /dev
+# после bootstrap и до установки пакетов.
+echo "=== lb bootstrap ==="
+lb bootstrap
+
+echo "=== lb chroot_cache restore ==="
+lb chroot_cache restore
+
+dev_mount
+
+mkdir -p .build
+# shellcheck disable=SC2086
+touch ${CACHE_MARKERS}
+
+echo "=== lb chroot ==="
+lb chroot
+
+cleanup
+
+echo "=== lb chroot_cache save ==="
+lb chroot_cache save
+
+# Фазу binary /dev не подкладываем: пакеты там не ставятся, а binary_chroot
+# копирует дерево (`cp -a chroot chroot.tmp`) — устройства из моунта сломали бы
+# копирование так же, как и кэш.
+echo "=== lb binary ==="
+lb binary
+
+dev_umount
 
 printf '%s %s\n' "${PURAD_CHROOT_HASH:-none}" "${PURAD_BINARY_HASH:-none}" > "${STAMP_FILE}"
 

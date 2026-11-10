@@ -71,6 +71,7 @@ echo "  профиль:   ${TARGET}"
 echo "  версия:    ${VERSION}"
 echo "  образ:     ${IMAGE} (база ${BASE})"
 echo "  рабочая:   ${WORK_DIR}"
+[ -n "${PURAD_APT_PROXY:-}" ] && echo "  apt proxy: ${PURAD_APT_PROXY}"
 
 command -v podman >/dev/null || { echo "ошибка: podman не установлен" >&2; exit 1; }
 
@@ -102,6 +103,8 @@ podman run --rm --privileged \
     -v "${REPO_DIR}/scripts:/purad-scripts:ro,Z" \
     -e "PURAD_CHROOT_HASH=${CHROOT_HASH}" \
     -e "PURAD_BINARY_HASH=${BINARY_HASH}" \
+    ${PURAD_APT_PROXY:+-e "PURAD_APT_PROXY=${PURAD_APT_PROXY}"} \
+    ${PURAD_FORCE_CLEAN:+-e "PURAD_FORCE_CLEAN=${PURAD_FORCE_CLEAN}"} \
     -w /work \
     "${IMAGE}" \
     bash -eux /purad-scripts/inside-build.sh "${TARGET}" ${LB_ARGS} \

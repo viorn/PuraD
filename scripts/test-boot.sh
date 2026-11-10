@@ -2,14 +2,17 @@
 # scripts/test-boot.sh — проверка загрузки ISO PuraD в qemu (BIOS и/или UEFI).
 #
 # Использование:
-#   scripts/test-boot.sh [trixie|sid] [--bios|--uefi|--all] [--timeout N] [--mem MiB]
+#   scripts/test-boot.sh [trixie|sid] [--bios|--uefi|--all] [--timeout N]
+#                        [--mem MiB] [--desktop]
 #
 # Что делает:
 #   1. Находит ISO в builds/<target>/.
 #   2. Запускает qemu без графики, serial-консоль на stdio.
-#   3. Ждёт login:, входит как user/live (умолчания live-config), выполняет
-#      id / cat /etc/os-release / uname -r и ищет маркер PURAD_DONE.
-#   4. Гасит VM и возвращает 0/1; полный лог — builds/<target>/test-logs/.
+#   3. Ждёт баннер getty, входит как user/live (умолчания live-config),
+#      выполняет id / cat /etc/os-release / uname -r и ищет маркер PURAD_DONE.
+#   4. С --desktop дополнительно ждёт графическую сессию и требует Type=x11
+#      (Этап 4: live-сессия жёстко на X11).
+#   5. Гасит VM и возвращает 0/1; полный лог — builds/<target>/test-logs/.
 #
 # Требования: qemu-system-x86_64; для UEFI — OVMF (ovmf). KVM не обязателен:
 # при недоступном /dev/kvm используется TCG (медленнее).
@@ -20,11 +23,15 @@ TARGET="trixie"
 MODE="all"
 TIMEOUT=180
 MEM=2048
+DESKTOP=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
         trixie|sid)
             TARGET="$1"
+            ;;
+        --desktop)
+            DESKTOP=1
             ;;
         --bios)
             MODE="bios"
@@ -104,6 +111,15 @@ run_case() {
     local stage=0 line
     local deadline=$((SECONDS + TIMEOUT))
     local ok=0
+    local guest_cmd
+
+    if [ "${DESKTOP}" -eq 1 ]; then
+        # Ждём сессию Type=x11 (после автологина SDDM), затем печатаем её
+        # параметры и списки доступных сессий.
+        guest_cmd='i=0; G=; while [ -z "$G" ] && [ $i -lt 60 ]; do for s in $(loginctl list-sessions --no-legend | awk "{print \$1}"); do t=$(loginctl show-session "$s" -p Type --value 2>/dev/null); [ "$t" = x11 ] && G=$s; done; [ -n "$G" ] || sleep 2; i=$((i+1)); done; echo XSESSION=$G; loginctl show-session "$G" -p Type -p Desktop -p Active; echo WAYLAND_SESSIONS:; ls /usr/share/wayland-sessions; echo XSESSIONS:; ls /usr/share/xsessions; echo PURAD_DONE'
+    else
+        guest_cmd='echo PURAD_MARK; id; cat /etc/os-release; uname -r; echo PURAD_DONE'
+    fi
 
     echo "==> ${name} (${ACCEL_NAME}), лог: ${log}"
     : > "${log}"
@@ -119,7 +135,14 @@ run_case() {
             continue
         fi
 
-        line="${line%$'\r'}"
+        # Приглашение и вывод идут через pty, поэтому в строках бывают \r не
+        # только в конце (видели "\rXSESSION=1"). Убираем их полностью.
+        line="${line//$'\r'/}"
+        # Серийная консоль — это tty, поэтому systemd-утилиты (loginctl) и bash
+        # (bracketed paste, управляющие последовательности readline) сыплют
+        # ANSI-кодами: "Type=x11\x1b[m". Без чистки не совпадает ни одно
+        # сравнение ниже. Чистим и то, что пишем в лог.
+        line="$(printf '%s' "${line}" | LC_ALL=C sed -e 's/\x1b\[[0-9;?]*[a-zA-Z]//g' -e 's/\x1b[()][A-Za-z0-9]//g')"
         printf '%s\n' "${line}" >> "${log}"
 
         case "${stage}" in
@@ -135,7 +158,7 @@ run_case() {
                     # Приглашение shell ("user@debian:~$ ") печатается без \n,
                     # поэтому команды отправляем по таймеру, а не по подстроке.
                     sleep 4
-                    printf 'echo PURAD_MARK; id; cat /etc/os-release; uname -r; echo PURAD_DONE\n' >&"${in}"
+                    printf '%s\n' "${guest_cmd}" >&"${in}"
                     stage=3
                 fi
                 ;;
@@ -156,8 +179,14 @@ run_case() {
     wait "${vm_pid}" 2>/dev/null || true
 
     if [ "${ok}" -eq 1 ] && grep -q '^PURAD_DONE$' "${log}"; then
+        if [ "${DESKTOP}" -eq 1 ] && ! { grep -q '^Type=x11$' "${log}" && grep -q '^XSESSION=[0-9]' "${log}"; }; then
+            echo "    FAIL: графическая сессия не X11 (см. ${log})" >&2
+            grep -E '^(XSESSION=|Type=|Desktop=|Active=|WAYLAND_SESSIONS:|XSESSIONS:|plasma)' "${log}" \
+                | sed 's/^/    | /' >&2 || true
+            return 1
+        fi
         echo "    OK: live-сессия загрузилась, вход user/live и команды выполнены"
-        grep -E '^(uid=|PRETTY_NAME=|Linux )' "${log}" | sed 's/^/    /' || true
+        grep -E '^(uid=|PRETTY_NAME=|Linux debian |XSESSION=|Type=|Desktop=)' "${log}" | sed 's/^/    /' || true
         return 0
     fi
 
