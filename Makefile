@@ -1,4 +1,4 @@
-.PHONY: help iso test clean distclean clean-images
+.PHONY: help iso test firmware clean distclean clean-images
 
 TARGET ?= trixie
 VERSION := $(shell cat VERSION)
@@ -11,6 +11,7 @@ help:
 	@echo "Использование:"
 	@echo "  make iso TARGET=trixie|sid   — собрать ISO"
 	@echo "  make test TARGET=trixie|sid  — загрузить ISO в qemu (BIOS+UEFI)"
+	@echo "  make firmware TARGET=trixie|sid — проверить набор прошивок в ISO"
 	@echo "  make clean                   — удалить артефакты, СОХРАНИТЬ кэш сборки"
 	@echo "  make distclean               — удалить всё, включая кэш и ISO"
 	@echo "  make clean-images            — удалить образы сборщика podman"
@@ -24,6 +25,9 @@ iso:
 
 test:
 	@bash scripts/test-boot.sh $(TARGET) --all --desktop
+
+firmware:
+	@bash scripts/check-firmware.sh $(TARGET)
 
 # `clean` удаляет рабочие деревья и ISO, но СОХРАНЯЕТ builds/<target>/cache
 # (bootstrap, chroot, скачанные .deb) — следующая сборка идёт из кэша.

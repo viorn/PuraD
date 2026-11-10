@@ -15,6 +15,9 @@ make iso TARGET=sid
 # Проверить загрузку ISO в qemu (BIOS + UEFI)
 make test TARGET=trixie
 
+# Проверить, что в образе есть все прошивки Wi-Fi/GPU
+make firmware TARGET=trixie
+
 # Очистить артефакты (кэш пакетов сохраняется)
 make clean
 
@@ -35,7 +38,9 @@ deked/
 │   └── Dockerfile            # debian:{trixie,sid} + live-build
 ├── scripts/
 │   ├── build.sh              # podman --privileged, bind-mount
-│   └── test-boot.sh          # qemu-прогрев ISO
+│   ├── inside-build.sh       # lb config/bootstrap/chroot/binary внутри контейнера
+│   ├── test-boot.sh          # qemu-прогрев ISO
+│   └── check-firmware.sh     # состав прошивок в squashfs
 ├── config/                   # дерево live-build
 │   ├── common                # файл с LB_* переменными
 │   ├── bootstrap             # файл: зеркало, дистрибутив, компоненты
@@ -67,8 +72,21 @@ deked/
 
 ### Wi-Fi охват
 
-Полный набор firmware-пакетов: Intel, Atheros, Broadcom b43, Realtek,
-MediaTek, rtw88/rtw89, mt76, IPW2x00, zd1211, libertas, carl9171.
+Набор задан явным списком `config/package-lists/400-firmware.list.chroot`
+(`LB_FIRMWARE_CHROOT=false`): Intel, Atheros/ath10k/ath11k/ath12k, MediaTek mt76,
+Realtek rtw88/rtw89, Broadcom brcm80211 и b43, Marvell libertas, ZyDAS zd1211,
+IPW2x00, carl9170; из графики — amdgpu, i915/xe, Intel SOF.
+
+Прошивки b43 скачиваются postinst-скриптом `firmware-b43-installer` **во время
+сборки** (в контейнере есть сеть) и попадают в `/lib/firmware/b43` уже в ISO —
+пользователю для Wi-Fi сеть не нужна.
+
+Осознанно не включаем (сотни мегабайт ради серверных карт и nvidia):
+`firmware-netronome`, `firmware-nvidia-graphics`, `firmware-marvell-prestera`,
+`firmware-nvidia-tesla-535-gsp`, `firmware-bnx2*`, `firmware-cavium`,
+`firmware-myricom`, `firmware-netxen`, `firmware-qlogic`, `firmware-siano`,
+`firmware-liquidio`, `firmware-ast`, `firmware-cirrus`, `firmware-ivtv`.
+Список проверяется `make firmware`.
 
 > **Примечание:** `broadcom-sta-dkms` (wl.ko) и `rtl8821cu-dkms`
 > отсутствуют в официальном архиве Debian — часть новых чипов

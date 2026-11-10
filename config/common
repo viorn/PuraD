@@ -40,9 +40,10 @@ LB_DEBIAN_INSTALLER="none"
 LB_LINUX_PACKAGES="linux-image"
 
 # --- Прошивки ---
-# LB_FIRMWARE_CHROOT=true заставляет live-build собрать список всех firmware-*
-# из archive-areas и установить их в chroot (Этап 5).
-LB_FIRMWARE_CHROOT="true"
+# LB_FIRMWARE_CHROOT=true заставил бы live-build поставить ВСЕ firmware-* из
+# archive-areas, включая серверные сетевые карты и nvidia (сотни мегабайт).
+# Набор прошивок задан явно: config/package-lists/400-firmware.list.chroot.
+LB_FIRMWARE_CHROOT="false"
 LB_FIRMWARE_BINARY="false"
 
 # --- APT ---

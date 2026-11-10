@@ -1,0 +1,12 @@
+# preseed для chroot-стадии (live-build читает config/preseed/*.cfg.chroot
+# и применяет через debconf-set-selections до установки пакетов).
+#
+# firmware-ipw2x00 в preinst показывает лицензию Intel и требует явного
+# согласия. На неинтерактивном frontend вопрос «не может быть задан», preinst
+# завершается с кодом 2, и apt падает:
+#   firmware-ipw2x00 agree question could not be asked
+#   dpkg: error processing archive .../firmware-ipw2x00_...deb (--unpack)
+# Согласие даётся здесь, на этапе сборки, — как это делает debian-installer
+# с preseed. Пакет остаётся в non-free-firmware и распространяется вместе
+# с образом на условиях лицензии Intel.
+firmware-ipw2x00 firmware-ipw2x00/license/accepted boolean true

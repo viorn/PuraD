@@ -63,7 +63,7 @@ hash_paths() {
         done
     ) | sort | xargs -r sha256sum | sha256sum | awk '{ print $1 }'
 }
-CHROOT_HASH="$(hash_paths config/common config/package-lists config/hooks config/includes.chroot profiles)"
+CHROOT_HASH="$(hash_paths config/common config/package-lists config/hooks config/includes.chroot config/preseed profiles)"
 BINARY_HASH="$(hash_paths config/common config/bootloaders config/includes.binary profiles VERSION)"
 
 echo "== PuraD build =="

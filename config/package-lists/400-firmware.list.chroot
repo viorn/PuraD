@@ -1,0 +1,70 @@
+# Прошивки и беспроводной стек.
+#
+# Формат live-build: одна строка = один пакет; строки, начинающиеся с "#", —
+# комментарии (комментарии в конце строки НЕ поддерживаются, всё после имени
+# пакета считается списком пакетов).
+#
+# Список явный, а не через LB_FIRMWARE_CHROOT=true: тот ставит ВСЕ firmware-*
+# из архива, включая серверные сетевые карты (netronome, marvell prestera,
+# qlogic, myricom, netxen, bnx2) и firmware-nvidia-* — это сотни мегабайт
+# в ISO, которые на ноутбуке и домашнем ПК не нужны.
+# Осознанно выброшено (вернётся в v2 при необходимости):
+#   firmware-netronome (141M), firmware-nvidia-graphics (124M),
+#   firmware-marvell-prestera (68M), firmware-nvidia-tesla-535-gsp,
+#   firmware-bnx2, firmware-bnx2x, firmware-cavium, firmware-myricom,
+#   firmware-netxen, firmware-qlogic, firmware-siano, firmware-liquidio,
+#   firmware-ast, firmware-cirrus, firmware-ivtv.
+
+# --- Wi-Fi / Bluetooth ---
+# Intel (все поколения, включая AX2xx/BE2xx)
+firmware-iwlwifi
+# Atheros/Qualcomm ath10k, ath11k, ath12k
+firmware-atheros
+# USB-донглы ath9k_htc
+firmware-ath9k-htc
+# MediaTek mt76 (mt7921/mt7922/mt7925/mt7926)
+firmware-mediatek
+# Realtek rtl81xx / rtw88 / rtw89 / rtl8821 / rtl8761
+firmware-realtek
+# Broadcom brcm80211 (BCM43xx softmac, FMAC)
+firmware-brcm80211
+# USB-донглы ar9170
+firmware-carl9170
+# старые Intel PRO/Wireless 2100/2200
+firmware-ipw2x00
+# Marvell libertas (в т.ч. OLPC)
+firmware-libertas
+# ZyDAS USB
+firmware-zd1211
+# «Разное»: rtl_nic, кодеки, сенсоры
+firmware-misc-nonfree
+
+# --- b43 (Broadcom) ---
+# Postinst этих пакетов СКАЧИВАЕТ прошивку из сети и распаковывает её
+# в /lib/firmware/b43 (build-time, сеть в контейнере есть). В готовом ISO
+# файлы уже лежат — пользователю сеть для Wi-Fi не нужна.
+firmware-b43-installer
+firmware-b43legacy-installer
+b43-fwcutter
+
+# --- Графика / звук ---
+# amdgpu, radeon
+firmware-amd-graphics
+# i915, xe
+firmware-intel-graphics
+# GuC/HuC и прочее вспомогательное
+firmware-intel-misc
+# DSP-прошивки Intel
+firmware-intel-sound
+# Sound Open Firmware (новые ноутбуки)
+firmware-sof-signed
+# свободные прошивки (часть драйверов ядра)
+firmware-linux-free
+
+# --- Беспроводной стек (NetworkManager + plasma-nm) ---
+iw
+wpasupplicant
+wireless-regdb
+rfkill
+network-manager
+plasma-nm

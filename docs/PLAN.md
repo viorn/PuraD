@@ -57,8 +57,9 @@ Live-дистрибутив на базе чистого Debian: liveCD с KDE P
 - `broadcom-sta-dkms` (wl.ko) и `rtl8821cu-dkms` в официальном архиве Debian
   отсутствуют — часть новых чипов потребует ручной доустановки после инсталла;
   в образ не кладём, чтобы не нарушать «чистый Debian».
-- `firmware-b43-installer` скачивает прошивку на postinst: фиксируем результат
-  через `includes.chroot`, чтобы в ISO файл попал без сети у пользователя.
+- `firmware-b43-installer` скачивает прошивку в postinst: он выполняется во
+  время сборки (в контейнере есть сеть), поэтому в ISO прошивка уже лежит и
+  вендорить бинарники в `includes.chroot` не нужно.
 
 ### Фиксация X11 в live-сессии
 
@@ -88,13 +89,16 @@ deked/                        # каталог репозитория; имя д
 │   └── Dockerfile            # debian:{trixie,sid} + live-build и зависимости сборки
 ├── scripts/
 │   ├── build.sh              # podman --privileged, bind-mount, том apt-кэша
-│   └── test-boot.sh          # qemu-прогрев ISO (BIOS и UEFI)
+│   ├── inside-build.sh       # lb config/bootstrap/chroot/binary внутри контейнера
+│   ├── test-boot.sh          # qemu-прогрев ISO (BIOS и UEFI)
+│   └── check-firmware.sh     # состав прошивок в squashfs (make firmware)
 ├── config/                   # дерево live-build
 │   ├── common                # LB_ARCHITECTURES, LB_MODE, LB_BOOTLOADER, ...
 │   ├── bootstrap             # зеркало, дистрибутив, компоненты
-│   ├── package-lists/        # 000-base.list.chroot, 100-kde.list.chroot, ...
+│   ├── package-lists/        # 000-base, 100-kde, 400-firmware
+│   ├── preseed/              # ответы debconf (лицензия firmware-ipw2x00)
 │   ├── hooks/                # chroot-хуки: брендинг, конфиги, systemd
-│   ├── includes.chroot/      # /etc/skel KDE, /etc/calamares, polkit, /etc/os-release
+│   ├── includes.chroot/      # /etc/skel KDE, /etc/calamares, polkit, live-config
 │   ├── includes.binary/      # тема загрузчика
 │   └── bootloaders/          # grub-efi + isolinux
 ├── profiles/
@@ -169,6 +173,15 @@ wizard ещё не настроены.
 
 **Готово, когда:** все firmware из списка в образе, NetworkManager поднимает Wi-Fi
 в live-сессии.
+
+Реализация: `config/package-lists/400-firmware.list.chroot` + беспроводной стек,
+`LB_FIRMWARE_CHROOT=false` (иначе live-build тянет все `firmware-*` архива,
+включая серверные NIC и nvidia). b43 закрыт пакетами `firmware-b43*-installer`:
+их postinst скачивает прошивку во время сборки, в ISO файлы уже лежат.
+Проверка — `make firmware TARGET=trixie` (`scripts/check-firmware.sh`):
+читает список файлов `filesystem.squashfs` и требует хотя бы один файл на
+каждое семейство (iwlwifi, ath10k/11k/12k, mt76, rtw88/89, brcm80211, b43,
+libertas, zd1211, ipw2x00, amdgpu, i915/xe, SOF) плюс пакеты стека.
 
 ### Этап 6. Calamares в live-образе
 
