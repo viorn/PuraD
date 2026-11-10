@@ -1,4 +1,4 @@
-.PHONY: help iso run run-uefi run-install test firmware installer clean distclean clean-images
+.PHONY: help iso run run-uefi run-install run-installed test firmware installer clean distclean clean-images
 
 TARGET ?= trixie
 VERSION := $(shell cat VERSION)
@@ -14,6 +14,7 @@ help:
 	@echo "  make run TARGET=trixie|sid   — открыть VM с графикой (ручная проверка)"
 	@echo "  make run-uefi                — то же через UEFI"
 	@echo "  make run-install             — VM + пустой диск 20G для установки"
+	@echo "  make run-installed           — загрузиться с уже установленного диска"
 	@echo "  make firmware TARGET=trixie|sid — проверить набор прошивок в ISO"
 	@echo "  make installer TARGET=trixie|sid — проверить запуск Calamares в live"
 	@echo "  make clean                   — удалить артефакты, СОХРАНИТЬ кэш сборки"
@@ -37,6 +38,11 @@ run-uefi:
 # Проверка установки: BIOS + пустой диск 20G для Calamares.
 run-install:
 	@bash scripts/run-qemu.sh $(TARGET) --disk
+
+# После установки: загружаемся с диска, без CD. Иначе BIOS снова берёт CD
+# (в режиме установки VM запускается с -boot d) и открывается live-система.
+run-installed:
+	@bash scripts/run-qemu.sh $(TARGET) --installed
 
 test:
 	@bash scripts/test-boot.sh $(TARGET) --all --desktop

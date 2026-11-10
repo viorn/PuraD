@@ -226,7 +226,11 @@ libertas, zd1211, ipw2x00, amdgpu, i915/xe, SOF) плюс пакеты стек�
   EFI-раздел при UEFI;
 - `mount.conf`: btrfs subvolumes `@` → `/`, `@home` → `/home`, `@log`, `@cache`;
 - `fstab.conf`: `compress=zstd` для btrfs, корректные опции для ext4;
-- `bootloader.conf`: GRUB для BIOS и UEFI.
+- `bootloader.conf`: GRUB для BIOS и UEFI;
+- убрать зависание выключения live-системы после установки: `systemd-shutdown`
+  ~90 c не может отцепить loop-устройство носителя, потому что его держит
+  bind-монтирование из модуля `sources-media` (см. README, «Известные
+  шероховатости установки»).
 
 **Готово, когда:** тестовые установки в qemu на btrfs и ext4 завершаются;
 после перезагрузки: корректный `fstab`, раскладка subvolume (`@`, `@home`),

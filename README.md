@@ -18,6 +18,12 @@ make test TARGET=trixie
 # Проверить, что в образе есть все прошивки Wi-Fi/GPU
 make firmware TARGET=trixie
 
+# Установить систему: VM с графикой + пустой диск 20G (builds/<target>/run/)
+make run-install TARGET=trixie
+
+# После установки — загрузиться с диска (без CD, иначе BIOS снова грузит live)
+make run-installed TARGET=trixie
+
 # Очистить артефакты (кэш пакетов сохраняется)
 make clean
 
@@ -39,8 +45,10 @@ deked/
 ├── scripts/
 │   ├── build.sh              # podman --privileged, bind-mount
 │   ├── inside-build.sh       # lb config/bootstrap/chroot/binary внутри контейнера
-│   ├── test-boot.sh          # qemu-прогрев ISO
-│   └── check-firmware.sh     # состав прошивок в squashfs
+│   ├── test-boot.sh          # headless-прогрев ISO по serial
+│   ├── run-qemu.sh           # VM с графикой: посмотреть глазами
+│   ├── check-firmware.sh     # состав прошивок в squashfs
+│   └── gen-branding.sh       # SVG → PNG для Calamares
 ├── config/                   # дерево live-build
 │   ├── common                # файл с LB_* переменными
 │   ├── bootstrap             # файл: зеркало, дистрибутив, компоненты
@@ -128,6 +136,23 @@ dpkg-статусу **целевой** системы (`chroot/var/lib/dpkg/stat
 возвращает обычные зеркала Debian. Если понадобится ставить офлайн что-то ещё,
 достаточно добавить имя пакета в `PACKAGES` этого хука. `make installer`
 предупреждает, если репозитория на носителе нет.
+
+## Известные шероховатости установки
+
+Проверено на живой установке (`make run-install`) и последующей загрузке
+с диска — система ставится и стартует (GRUB → systemd → SDDM → Plasma).
+
+- **После установки VM снова грузит live-систему.** В режиме установки VM
+  запускается с `-boot d` (CD первым), поэтому «Перезагрузить» в Calamares
+  возвращает в live-сессию, а не в установленную систему. Это не ошибка
+  установки: `make run-installed` поднимает ту же VM без CD и с `-boot c`.
+- **Выключение live-системы после установки идёт ~90 секунд** и печатает
+  `Failed to unmount ... Device or resource busy`,
+  `Could not detach loop /dev/loop0`, `Cannot finalize remaining file systems,
+  loop devices, continuing`. Это `systemd-shutdown` не может отцепить носитель,
+  который остался bind-смонтированным модулем `sources-media`; данные к этому
+  моменту уже на диске. Лечится не нажатием кнопок, а правкой модуля (задача
+  в `docs/PLAN.md`, этап 7) — до тех пор не считается ошибкой установки.
 
 ## Кэш сборки
 
