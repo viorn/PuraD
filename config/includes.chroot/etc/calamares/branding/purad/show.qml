@@ -1,0 +1,35 @@
+/* Слайд-шоу на время установки (slideshowAPI 2).
+ * Структура повторяет branding Debian из calamares-settings-debian,
+ * оформление — своё. */
+import QtQuick 2.0;
+import calamares.slideshow 1.0;
+
+Presentation
+{
+    id: presentation
+
+    Timer {
+        interval: 20000
+        repeat: true
+        onTriggered: presentation.goToNextSlide()
+    }
+
+    Slide {
+        Image {
+            id: background1
+            source: "slide1.png"
+            width: 467; height: 280
+            fillMode: Image.PreserveAspectFit
+            anchors.centerIn: parent
+        }
+        Text {
+            anchors.horizontalCenter: background1.horizontalCenter
+            anchors.top: background1.bottom
+            text: qsTr("Идёт установка PuraD.<br/>" +
+                       "Обычно это занимает несколько минут — прерывать не нужно.")
+            wrapMode: Text.WordWrap
+            width: 600
+            horizontalAlignment: Text.Center
+        }
+    }
+}

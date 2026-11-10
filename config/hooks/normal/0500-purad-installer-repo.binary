@@ -1,0 +1,115 @@
+#!/bin/sh
+# 0500-purad-installer-repo.binary — локальный apt-репозиторий на носителе.
+#
+# Зачем это нужно.
+# Модуль bootloader-config из calamares-settings-debian ставит загрузчик
+# в целевую систему командой (см. /usr/share/calamares/helpers/calamares-bootloader-config):
+#
+#     chroot $CHROOT apt-get -y install grub-efi    # UEFI
+#     chroot $CHROOT apt-get -y install grub-pc     # BIOS
+#
+# В самом live-образе этих пакетов нет и быть не может: grub-pc и
+# grub-efi-amd64 объявляют друг другу Conflicts, а на BIOS-машине нужен первый,
+# на UEFI — второй. Пока не отработал модуль sources-final, единственный
+# источник apt в целевой системе — сам носитель (модуль sources-media пишет
+# `deb [trusted=yes] file:/run/live/medium <dist> main`). Если на носителе нет
+# pool/, установка обрывается на шаге загрузчика:
+#
+#     Package grub-efi is not available, but is referred to by another package.
+#     E: Package 'grub-efi' has no installation candidate
+#
+# Поэтому здесь мы скачиваем оба набора .deb и кладём их на носитель вместе с
+# индексом dists/<dist>/main/binary-<arch>/, чтобы репозиторий sources-media
+# был непустым. Установка после этого не требует сети.
+#
+# Зависимости разрешаются по dpkg-статусу целевой системы (chroot), а не
+# контейнера сборки: в контейнере часть пакетов уже стоит (например,
+# grub-efi-amd64-bin), и apt не скачал бы их, хотя в целевой системе их нет.
+#
+# Хук выполняется live-build'ом из корня ISO-дерева (binary/), см.
+# /usr/lib/live/build/binary_hooks.
+
+set -e
+
+DIST="${LB_DISTRIBUTION:-trixie}"
+ARCH="${LB_ARCHITECTURES:-amd64}"
+case "${ARCH}" in
+	*,*) ARCH="${ARCH%%,*}" ;;
+esac
+
+BUILD_DIR="$(cd "$(pwd)/.." && pwd)"
+POOL="pool/main"
+META="dists/${DIST}/main/binary-${ARCH}"
+
+# Кэш .deb между сборками: lb clean его не удаляет (лежит в builds/<target>/cache).
+CACHE_DIR="${BUILD_DIR}/cache/purad-installer-repo"
+DPKG_STATUS="${BUILD_DIR}/chroot/var/lib/dpkg/status"
+
+# Явный список: grub-pc тянет grub-pc-bin и grub2-common, grub-efi — цепочку
+# shim-signed. Ставить их одновременно нельзя (Conflicts), поэтому качаем
+# двумя независимыми прогонами apt в один кэш.
+PACKAGES="grub-pc grub-efi"
+
+mkdir -p "${POOL}" "${META}" "${CACHE_DIR}/archives/partial"
+
+if [ -z "$(find "${CACHE_DIR}/archives" -maxdepth 1 -name '*.deb' -print -quit)" ]; then
+	echo "P: скачиваю пакеты загрузчика для установщика (${PACKAGES})"
+	apt-get update -qq
+	for _pkg in ${PACKAGES}; do
+		if [ -f "${DPKG_STATUS}" ]; then
+			apt-get -y -d -o Debug::NoLocking=1 \
+				-o Dir::State::status="${DPKG_STATUS}" \
+				-o Dir::Cache::archives="${CACHE_DIR}/archives" \
+				install "${_pkg}"
+		else
+			apt-get -y -d -o Debug::NoLocking=1 \
+				-o Dir::Cache::archives="${CACHE_DIR}/archives" \
+				install "${_pkg}"
+		fi
+	done
+fi
+
+cp -f "${CACHE_DIR}"/archives/*.deb "${POOL}/"
+
+# Индекс Packages: поля control из самого .deb + сведения о файле.
+: > "${META}/Packages"
+for _deb in "${POOL}"/*.deb; do
+	{
+		dpkg-deb -f "${_deb}"
+		printf 'Filename: %s/%s\n' "${POOL}" "$(basename "${_deb}")"
+		printf 'Size: %s\n' "$(stat -c%s "${_deb}")"
+		printf 'MD5sum: %s\n' "$(md5sum "${_deb}" | cut -d' ' -f1)"
+		printf 'SHA256: %s\n' "$(sha256sum "${_deb}" | cut -d' ' -f1)"
+		printf '\n'
+	} >> "${META}/Packages"
+done
+
+gzip -9 -c "${META}/Packages" > "${META}/Packages.gz"
+
+# Release обязателен: без него apt считает репозиторий нечитаемым.
+# Хэши внутри него нужны, чтобы apt не предупреждал «No Hash entry in Release
+# file» и не искал несуществующие Packages.xz/Packages.bz2.
+{
+	printf 'Origin: PuraD\n'
+	printf 'Label: PuraD %s\n' "${DIST}"
+	printf 'Suite: %s\n' "${DIST}"
+	printf 'Codename: %s\n' "${DIST}"
+	printf 'Components: main\n'
+	printf 'Architectures: %s\n' "${ARCH}"
+	printf 'Description: PuraD live media - packages for the installer\n'
+	printf 'Date: %s\n' "$(date -Ru)"
+	printf 'MD5Sum:\n'
+	for _f in "main/binary-${ARCH}/Packages" "main/binary-${ARCH}/Packages.gz"; do
+		printf ' %s %s %s\n' \
+			"$(md5sum "dists/${DIST}/${_f}" | cut -d' ' -f1)" \
+			"$(stat -c%s "dists/${DIST}/${_f}")" "${_f}"
+	done
+	printf 'SHA256:\n'
+	for _f in "main/binary-${ARCH}/Packages" "main/binary-${ARCH}/Packages.gz"; do
+		printf ' %s %s %s\n' \
+			"$(sha256sum "dists/${DIST}/${_f}" | cut -d' ' -f1)" \
+			"$(stat -c%s "dists/${DIST}/${_f}")" "${_f}"
+	done
+} > "dists/${DIST}/Release"
+
+echo "P: локальный репозиторий установщика: $(ls "${POOL}"/*.deb | wc -l) пакетов, $(du -sh "${POOL}" | cut -f1)"

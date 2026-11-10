@@ -1,0 +1,38 @@
+---
+# Брендинг Calamares для PuraD.
+# Картинки — scripts/gen-branding.sh из assets/branding/*.svg (Calamares не
+# показывает SVG, поэтому PNG рендерятся заранее).
+componentName:   purad
+
+welcomeStyleCalamares:   true
+welcomeExpandingLogo:    true
+windowExpanding:         normal
+windowSize:              900px,600px
+windowPlacement:         center
+
+strings:
+    productName:          PuraD
+    shortProductName:     PuraD
+    version:              2026.11.09
+    shortVersion:         2026.11.09
+    versionedName:        PuraD 2026.11.09
+    shortVersionedName:   PuraD 2026.11.09
+    bootloaderEntryName:  PuraD
+    # Своих сайтов пока нет — ссылки в welcome отключены (см. modules/welcome.conf).
+
+sidebar:      widget
+navigation:   widget
+
+images:
+    productLogo:     "purad-logo.png"
+    productIcon:     "purad-logo.png"
+    productWelcome:  "welcome.png"
+
+slideshow:        "show.qml"
+slideshowAPI:     2
+
+style:
+    SidebarBackground:          "#0f2b3d"
+    SidebarText:                "#ffffff"
+    SidebarTextCurrent:         "#ffffff"
+    SidebarBackgroundCurrent:   "#1f7fb8"

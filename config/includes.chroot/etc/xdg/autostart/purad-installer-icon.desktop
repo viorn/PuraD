@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Ярлык установщика PuraD
+Comment=Создаёт значок «Установить PuraD» на рабочем столе live-сессии
+Exec=purad-installer-icon
+Terminal=false
+StartupNotify=false
+NoDisplay=true
+X-GNOME-Autostart-Phase=Initialization
+X-KDE-autostart-phase=1
+OnlyShowIn=KDE;GNOME;XFCE;LXQt;MATE;Cinnamon;

@@ -1,0 +1,77 @@
+#!/bin/sh
+# 0087-purad-calamares — разрешает запуск установщика из live-сессии.
+#
+# Выполняется live-config при загрузке live-системы, поэтому все изменения
+# существуют только в live-слое (tmpfs поверх squashfs) и в установленную
+# систему не попадают: там установщик не нужен, а правило pkexec без пароля
+# был бы дырой.
+#
+# Что делает:
+#   1. пишет правило polkit, разрешающее LIVE_USERNAME запускать pkexec
+#      без аутентификации (иначе Calamares спросит пароль live-пользователя);
+#   2. убирает ярлык и autostart «Install Debian» из calamares-settings-debian —
+#      у нас свой ярлык «Установить PuraD».
+
+. /usr/lib/live/config.sh
+
+Cmdline () {
+	:;
+}
+
+Init () {
+	if ! pkg_is_installed "calamares"; then
+		exit 0
+	fi
+
+	if component_was_executed "purad-calamares"; then
+		exit 0
+	fi
+
+	echo -n " purad-calamares"
+}
+
+Config () {
+	_live_user="${LIVE_USERNAME:-user}"
+
+	mkdir -p /etc/polkit-1/rules.d
+	cat > /etc/polkit-1/rules.d/49-purad-live-calamares.rules <<EOF
+// Создано live-config (PuraD) при загрузке live-системы.
+// Разрешает пользователю ${_live_user} запускать программы через pkexec
+// без пароля. В установленной системе этого файла нет.
+//
+// Проверка сессии намеренно минимальна: только имя пользователя live-режима.
+// Любые дополнительные условия (subject.local/active) ломаются в реальных
+// сценариях — например, когда pkexec зовут не из активной графической сессии.
+// Дополнительных прав правило не даёт: live-config (0040-sudo) и так выдаёт
+// этому пользователю sudo без пароля.
+//
+// ВАЖНО: у Calamares есть СВОЁ действие pkexec —
+// /usr/share/polkit-1/actions/com.github.calamares.calamares.policy
+// (id com.github.calamares.calamares.pkexec.run, allow_active: auth_admin,
+// аннотация org.freedesktop.policykit.exec.path=/usr/bin/calamares).
+// Для такой программы pkexec спрашивает разрешение не на общее действие
+// org.freedesktop.policykit.exec, а на это, поэтому одно только общее правило
+// не работает: "pkexec /bin/true" проходит, а "pkexec /usr/bin/calamares" —
+// нет ("Error executing command as another user: Not authorized").
+polkit.addRule(function(action, subject) {
+    if (subject.user != "${_live_user}") {
+        return;
+    }
+    if (action.id == "org.freedesktop.policykit.exec" ||
+        action.id == "com.github.calamares.calamares.pkexec.run") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+	chmod 0644 /etc/polkit-1/rules.d/49-purad-live-calamares.rules
+
+	# Свой ярлык вместо дебиановского.
+	rm -f /usr/share/applications/calamares-install-debian.desktop
+	rm -f /etc/xdg/autostart/calamares-desktop-icon.desktop
+
+	touch /var/lib/live/config/purad-calamares
+}
+
+Cmdline
+Init
+Config

@@ -1,4 +1,4 @@
-.PHONY: help iso test firmware clean distclean clean-images
+.PHONY: help iso run run-uefi run-install test firmware installer clean distclean clean-images
 
 TARGET ?= trixie
 VERSION := $(shell cat VERSION)
@@ -11,7 +11,11 @@ help:
 	@echo "Использование:"
 	@echo "  make iso TARGET=trixie|sid   — собрать ISO"
 	@echo "  make test TARGET=trixie|sid  — загрузить ISO в qemu (BIOS+UEFI)"
+	@echo "  make run TARGET=trixie|sid   — открыть VM с графикой (ручная проверка)"
+	@echo "  make run-uefi                — то же через UEFI"
+	@echo "  make run-install             — VM + пустой диск 20G для установки"
 	@echo "  make firmware TARGET=trixie|sid — проверить набор прошивок в ISO"
+	@echo "  make installer TARGET=trixie|sid — проверить запуск Calamares в live"
 	@echo "  make clean                   — удалить артефакты, СОХРАНИТЬ кэш сборки"
 	@echo "  make distclean               — удалить всё, включая кэш и ISO"
 	@echo "  make clean-images            — удалить образы сборщика podman"
@@ -23,11 +27,25 @@ help:
 iso:
 	@bash scripts/build.sh $(TARGET)
 
+# Интерактивная проверка глазами: окно qemu, обычная VM.
+run:
+	@bash scripts/run-qemu.sh $(TARGET)
+
+run-uefi:
+	@bash scripts/run-qemu.sh $(TARGET) --uefi
+
+# Проверка установки: BIOS + пустой диск 20G для Calamares.
+run-install:
+	@bash scripts/run-qemu.sh $(TARGET) --disk
+
 test:
 	@bash scripts/test-boot.sh $(TARGET) --all --desktop
 
 firmware:
 	@bash scripts/check-firmware.sh $(TARGET)
+
+installer:
+	@bash scripts/test-boot.sh $(TARGET) --all --installer
 
 # `clean` удаляет рабочие деревья и ISO, но СОХРАНЯЕТ builds/<target>/cache
 # (bootstrap, chroot, скачанные .deb) — следующая сборка идёт из кэша.

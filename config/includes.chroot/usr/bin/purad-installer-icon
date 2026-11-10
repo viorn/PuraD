@@ -1,0 +1,22 @@
+#!/bin/sh
+# purad-installer-icon — кладёт ярлык установщика на рабочий стол live-сессии.
+#
+# Вызывается из /etc/xdg/autostart/purad-installer-icon.desktop. На
+# установленной системе ничего не делает: /run/live есть только у live-системы
+# (его создаёт live-boot), поэтому ярлык не будет появляться у пользователей
+# после установки.
+set -e
+
+[ -d /run/live ] || exit 0
+
+SRC=/usr/share/applications/purad-install.desktop
+[ -f "${SRC}" ] || exit 0
+
+if command -v xdg-user-dir >/dev/null 2>&1; then
+    DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || true)"
+fi
+[ -n "${DESKTOP_DIR:-}" ] || DESKTOP_DIR="${HOME}/Desktop"
+
+mkdir -p "${DESKTOP_DIR}"
+cp -f "${SRC}" "${DESKTOP_DIR}/purad-install.desktop"
+chmod +x "${DESKTOP_DIR}/purad-install.desktop"

@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Установить PuraD
+Name[en]=Install PuraD
+GenericName=Установка системы
+GenericName[en]=System installer
+Comment=Установить PuraD на диск (Calamares)
+Comment[en]=Install PuraD on the disk (Calamares)
+Exec=purad-installer
+Icon=purad-logo
+Terminal=false
+Categories=Qt;System;
+Keywords=install;installation;setup;calamares;
+StartupWMClass=calamares
+StartupNotify=true

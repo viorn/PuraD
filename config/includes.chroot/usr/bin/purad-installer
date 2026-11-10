@@ -1,0 +1,28 @@
+#!/bin/sh
+# purad-installer — запуск Calamares из live-сессии.
+#
+# Повторяет логику обёртки calamares-install-debian из
+# calamares-settings-debian: live-build оставляет в live-системе /etc/fstab
+# с содержимым «# UNCONFIGURED FSTAB FOR BASE SYSTEM», и модуль partition
+# принимает его за настоящую таблицу файловых систем. На время установки
+# файл убираем, после — возвращаем.
+set -e
+
+FSTAB=/etc/fstab
+FSTAB_SAVED=/etc/fstab.purad-live
+
+if [ -e "${FSTAB}" ] && [ ! -e "${FSTAB_SAVED}" ]; then
+    sudo -n mv "${FSTAB}" "${FSTAB_SAVED}" || true
+fi
+
+restore_fstab() {
+    if [ -e "${FSTAB_SAVED}" ] && [ ! -e "${FSTAB}" ]; then
+        sudo -n mv "${FSTAB_SAVED}" "${FSTAB}" || true
+    fi
+}
+trap restore_fstab EXIT
+
+# Calamares работает от root. В live-сессии pkexec не спрашивает пароль:
+# правило /etc/polkit-1/rules.d/49-purad-live-calamares.rules создаёт
+# live-config (компонент 0087-purad-calamares) только для live-режима.
+pkexec /usr/bin/calamares "$@"

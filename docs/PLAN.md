@@ -193,6 +193,33 @@ libertas, zd1211, ipw2x00, amdgpu, i915/xe, SOF) плюс пакеты стек�
 **Готово, когда:** Calamares запускается из live-сессии (X11) без ручного ввода
 пароля в терминале, проходит до шага разметки.
 
+**Реализация:**
+
+- `config/package-lists/300-installer.list.chroot` — `calamares` +
+  `calamares-settings-debian`; последовательность модулей взята из дистрибутива,
+  комментарии переведены, branding переключён на `purad`
+  (`config/includes.chroot/etc/calamares/settings.conf`);
+- branding — `config/includes.chroot/etc/calamares/branding/purad/`
+  (`branding.desc`, `show.qml` со `slideshowAPI: 2`, PNG). Исходники —
+  `assets/branding/*.svg`, в PNG рендерит `scripts/gen-branding.sh` (QML
+  SVG не умеет);
+- `usr/lib/live/config/0087-purad-calamares` — правило polkit для live-пользователя
+  на **два** action id: `org.freedesktop.policykit.exec` и
+  `com.github.calamares.calamares.pkexec.run` (Calamares объявляет собственный
+  action, generic-правила для pkexec недостаточно);
+- `usr/bin/purad-installer` — обёртка: прячет live-`/etc/fstab`
+  (`# UNCONFIGURED FSTAB FOR BASE SYSTEM`) и запускает `pkexec /usr/bin/calamares`;
+- ярлык «Установить PuraD»: `usr/share/applications/purad-install.desktop` +
+  `usr/bin/purad-installer-icon` из `/etc/xdg/autostart`, который кладёт его на
+  рабочий стол только при загрузке с носителя (`/run/live`);
+- **локальный apt-репозиторий на носителе** — `config/hooks/normal/0500-purad-installer-repo.binary`.
+  Шаг `bootloader-config` ставит grub обычным `apt-get install grub-efi|grub-pc`
+  из целевой системы, а до модуля `sources-final` единственный источник — сам
+  носитель. Без `pool/` установка падает с
+  `E: Package 'grub-efi' has no installation candidate`;
+- `scripts/test-boot.sh --installer` — проверка запуска Calamares из live-сессии
+  по serial-консоли (pkexec, XAUTHORITY, отсутствие «Not authorized»).
+
 ### Этап 7. Установка ext4/btrfs
 
 - `partition.conf`: `defaultFileSystem: ext4`, btrfs в списке, GPT,

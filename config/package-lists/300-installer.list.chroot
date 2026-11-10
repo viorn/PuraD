@@ -1,0 +1,11 @@
+# Установщик PuraD (Calamares).
+#
+# calamares — сам установщик (Qt6/QML, модули в /usr/lib/calamares/modules),
+# calamares-settings-debian — проверенная обвязка для live-системы Debian:
+# unpackfs из /run/live/medium/live/filesystem.squashfs, чистка
+# sources.list на целевой системе, bootloader-config, dpkg-unsafe-io и пр.
+# Наши правки — в config/includes.chroot/etc/calamares/ (settings.conf,
+# брендинг purad, modules/welcome.conf) и в live-config компоненте
+# 0087-purad-calamares (правило polkit, ярлык).
+calamares
+calamares-settings-debian

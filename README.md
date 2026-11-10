@@ -92,6 +92,43 @@ IPW2x00, carl9170; из графики — amdgpu, i915/xe, Intel SOF.
 > отсутствуют в официальном архиве Debian — часть новых чипов
 > потребует ручной доустановки после инсталла.
 
+## Установщик: локальный apt-репозиторий на носителе
+
+Шаг загрузчика в Calamares (`bootloader-config` из `calamares-settings-debian`)
+ставит grub в целевую систему обычным apt:
+
+```
+chroot $CHROOT apt-get -y install grub-efi     # UEFI
+chroot $CHROOT apt-get -y install grub-pc      # BIOS
+```
+
+В самой live-системе этих пакетов нет и быть не может: `grub-pc` и
+`grub-efi-amd64` объявляют друг другу `Conflicts`, поэтому в образ нельзя
+положить «оба сразу». А пока не отработал модуль `sources-final`, у целевой
+системы единственный источник apt — сам носитель: `sources-media` пишет
+`deb [trusted=yes] file:/run/live/medium trixie main`. Если на носителе пусто,
+установка обрывается на загрузчике:
+
+```
+Package grub-efi is not available, but is referred to by another package.
+E: Package 'grub-efi' has no installation candidate
+```
+
+`config/hooks/normal/0500-purad-installer-repo.binary` скачивает оба набора
+(`grub-pc` для BIOS, `grub-efi` + цепочка `shim-signed` для UEFI — 14 `.deb`,
+~6,6 МБ), кладёт их в `pool/main/` и генерирует индекс
+`dists/<target>/main/binary-amd64/` с `Release`. Зависимости считаются по
+dpkg-статусу **целевой** системы (`chroot/var/lib/dpkg/status`), а не
+контейнера сборки — иначе apt пропустил бы пакеты, которые уже стоят в
+контейнере, но отсутствуют в образе. Скачанные `.deb` кешируются в
+`builds/<target>/cache/purad-installer-repo/`, так что пересборка без сети
+тоже работает.
+
+Итог: установка не требует интернета вплоть до `sources-final`, который
+возвращает обычные зеркала Debian. Если понадобится ставить офлайн что-то ещё,
+достаточно добавить имя пакета в `PACKAGES` этого хука. `make installer`
+предупреждает, если репозитория на носителе нет.
+
 ## Кэш сборки
 
 live-build кэширует bootstrap, chroot и скачанные `.deb` в
