@@ -105,9 +105,15 @@ if [ "${PURAD_FORCE_CLEAN:-0}" = "1" ]; then
     # Аварийный пересбор с нуля (например, после падения посреди chroot-стадии).
     CLEAN_MODE="full"
 elif [ -f "${STAMP_FILE}" ]; then
-    read -r OLD_CHROOT OLD_BINARY < "${STAMP_FILE}" || true
-    if [ "${PURAD_CHROOT_HASH:-}" != "${OLD_CHROOT:-}" ]; then
+    read -r OLD_PACKAGES OLD_OVERLAY OLD_BINARY < "${STAMP_FILE}" || true
+    if [ "${PURAD_PACKAGES_HASH:-}" != "${OLD_PACKAGES:-}" ]; then
+        # Изменился состав пакетов: пакеты не удаляются «сами», поэтому нужен
+        # полный lb clean и переустановка с нуля.
         CLEAN_MODE="full"
+    elif [ "${PURAD_OVERLAY_HASH:-}" != "${OLD_OVERLAY:-}" ]; then
+        # Только hooks/includes.chroot: перезаливаем файлы в существующий
+        # chroot (~1–2 мин вместо ~25).
+        CLEAN_MODE="overlay"
     elif [ "${PURAD_BINARY_HASH:-}" != "${OLD_BINARY:-}" ]; then
         CLEAN_MODE="binary"
     fi
@@ -115,6 +121,18 @@ elif [ -d binary ] || [ -d chroot ]; then
     # Рабочий каталог от сборки без отпечатков — пересобираем начисто.
     CLEAN_MODE="full"
 fi
+
+# Удаляет из chroot файлы, которые пришли из config/includes.chroot, чтобы
+# повторное копирование не оставило старых версий. Удалённые ИЗ РЕПОЗИТОРИЯ
+# файлы так не отследить — после удаления нужен PURAD_FORCE_CLEAN=1.
+purge_includes_overlay() {
+    [ -d chroot ] || return 0
+    [ -d config/includes.chroot ] || return 0
+    local file
+    while IFS= read -r file; do
+        rm -f "chroot/${file#./}"
+    done < <(cd config/includes.chroot && find . -type f)
+}
 
 if [ -n "${CLEAN_MODE}" ]; then
     echo "=== конфиг изменился: чистка (${CLEAN_MODE}) ==="
@@ -129,6 +147,14 @@ if [ "${CLEAN_MODE}" = "full" ]; then
     # Кэш chroot содержит старый набор файлов — убираем, пакеты (cache/packages.*)
     # и bootstrap-кэш сохраняются.
     rm -rf cache/chroot
+    run_lb_config
+elif [ "${CLEAN_MODE}" = "overlay" ]; then
+    # Стадии, которые копируют includes/hooks, придётся выполнить заново:
+    # снимаем их stage-файлы (пакеты и кэш остаются на месте).
+    lb clean --binary
+    rm -f .build/chroot_includes_before_packages .build/chroot_includes_after_packages \
+          .build/chroot_hooks .build/chroot_hacks
+    purge_includes_overlay
     run_lb_config
 elif [ "${CLEAN_MODE}" = "binary" ]; then
     lb clean --binary
@@ -250,7 +276,7 @@ lb binary
 
 dev_umount
 
-printf '%s %s\n' "${PURAD_CHROOT_HASH:-none}" "${PURAD_BINARY_HASH:-none}" > "${STAMP_FILE}"
+printf '%s %s %s\n' "${PURAD_PACKAGES_HASH:-none}" "${PURAD_OVERLAY_HASH:-none}" "${PURAD_BINARY_HASH:-none}" > "${STAMP_FILE}"
 
 echo "=== артефакты ==="
 ls -lh ./*.iso ./*.sha256 ./SHA256SUMS ./manifest* 2>/dev/null || true

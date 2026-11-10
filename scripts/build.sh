@@ -53,8 +53,13 @@ WORK_DIR="${REPO_DIR}/builds/${TARGET}"
 
 # --- Отпечатки конфига: чтобы `make iso` после правки конфигов не собирал
 # старый образ из закэшированных стадий live-build ---
-# chroot-хеш: то, что влияет на содержимое корня live-системы;
-# binary-хеш: загрузчики, ISO-инклюды, имя образа.
+# Три отпечатка, потому что цена пересборки разная:
+#   packages — набор пакетов и их пресид: меняется состав системы, нужен
+#              полный `lb clean` и переустановка пакетов;
+#   overlay  — hooks/ и includes.chroot/: достаточно перезалить файлы в chroot
+#              (переустановка пакетов не нужна);
+#   binary   — загрузчики, инклюды стадии binary, имя образа, VERSION:
+#              достаточно `lb clean --binary`.
 hash_paths() {
     (
         cd "${REPO_DIR}"
@@ -63,7 +68,8 @@ hash_paths() {
         done
     ) | sort | xargs -r sha256sum | sha256sum | awk '{ print $1 }'
 }
-CHROOT_HASH="$(hash_paths config/common config/package-lists config/hooks config/includes.chroot config/preseed profiles)"
+PACKAGES_HASH="$(hash_paths config/common config/package-lists config/preseed profiles)"
+OVERLAY_HASH="$(hash_paths config/hooks config/includes.chroot)"
 BINARY_HASH="$(hash_paths config/common config/bootloaders config/includes.binary profiles VERSION)"
 
 echo "== PuraD build =="
@@ -101,7 +107,8 @@ set +e
 podman run --rm --privileged \
     -v "${WORK_DIR}:/work:Z" \
     -v "${REPO_DIR}/scripts:/purad-scripts:ro,Z" \
-    -e "PURAD_CHROOT_HASH=${CHROOT_HASH}" \
+    -e "PURAD_PACKAGES_HASH=${PACKAGES_HASH}" \
+    -e "PURAD_OVERLAY_HASH=${OVERLAY_HASH}" \
     -e "PURAD_BINARY_HASH=${BINARY_HASH}" \
     ${PURAD_APT_PROXY:+-e "PURAD_APT_PROXY=${PURAD_APT_PROXY}"} \
     ${PURAD_FORCE_CLEAN:+-e "PURAD_FORCE_CLEAN=${PURAD_FORCE_CLEAN}"} \
