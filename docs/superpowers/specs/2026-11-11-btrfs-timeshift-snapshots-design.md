@@ -1,8 +1,9 @@
 # Снимки btrfs: Timeshift + grub-btrfs и загрузка в снимки
 
 - Дата: 2026-11-11
-- Статус: на вычитке
-- Связанные документы: `docs/PLAN.md`, `README.md`
+- Статус: реализовано (2026-11-11)
+- Связанные документы: `docs/PLAN.md`, `README.md`,
+  `docs/superpowers/plans/2026-11-11-btrfs-timeshift-snapshots.md`
 
 ## 1. Цель
 
@@ -78,8 +79,11 @@
   - все `.deb` копируются в `pool/main`, индекс `Packages`/`Release`
     генерируется как сейчас;
   - кэш-гейт «если в `cache/purad-installer-repo/archives` есть хоть один
-    `.deb` — ничего не качать» заменяется на нормальную логику: `apt-get -d`
-    запускается всегда, а уже скачанные `.deb` apt не перекачивает.
+    `.deb` — ничего не качать» заменяется на нормальную логику: онлайн
+    `apt-get -d` запускается всегда, а уже скачанные `.deb` apt не
+    перекачивает; офлайн (индекс не скачался) хук использует кэш, но только
+    если в нём есть все верхнеуровневые пакеты (`grub-pc`, `grub-efi`,
+    `timeshift`, `inotify-tools`). Иначе сборка падает с внятной ошибкой.
 - `scripts/build.sh` копирует `vendor/` в рабочее дерево и включает его в
   отпечаток сборки, иначе изменение тарбола не приведёт к пересборке.
 
@@ -124,11 +128,17 @@
   - `WantedBy=multi-user.target` (включается только модулем на btrfs).
 - `config/includes.chroot/usr/lib/purad/first-snapshot`:
   1. проверяет маркер btrfs и наличие `timeshift`;
-  2. `timeshift --create --btrfs --scripted --yes
+  2. не создаёт снимок, если `findmnt -no FSTYPE /` не `btrfs` (загрузка в
+     снимок даёт `overlay`) или `btrfs property get / ro` не `ro=false` — это
+     защита от вложенного снимка при загрузке в начальный снимок, где
+     `done`-маркера нет;
+  3. если снимка с комментарием `PuraD: initial snapshot` ещё нет —
+     `timeshift --create --btrfs --scripted --yes
      --comments "PuraD: initial snapshot" --tags O`;
-  3. `update-grub` (best-effort: ошибка логируется, снимок уже создан);
-  4. `touch /var/lib/purad/first-snapshot.done`;
-  5. `systemctl disable purad-first-snapshot.service`.
+  4. `update-grub`; при ошибке `done` не ставится, юнит повторит только
+     `update-grub` при следующей загрузке (снимок не дублируется);
+  5. `touch /var/lib/purad/first-snapshot.done`;
+  6. `systemctl disable purad-first-snapshot.service`.
 - Юнит и скрипт лежат в образе всегда, но на ext4 не включены и не срабатывают.
 
 ### 3.4. grub-btrfsd
@@ -157,6 +167,12 @@
 - Итог: система стартует как writable, все изменения — в RAM и теряются при
   перезагрузке; сам снимок остаётся неизменным.
 - Нормальная загрузка не затрагивается: у `@` свойство `ro=false`.
+- В GRUB-пункт снимка добавляется
+  `GRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS="ro systemd.mask=systemd-remount-fs.service"`.
+  `ro` не даёт монтировать снимок rw; `systemd-remount-fs` маскируется, потому
+  что overlayfs не принимает remount с опциями из `/etc/fstab`
+  (`EINVAL: no changes allowed in reconfigure`), а корень уже writable через
+  overlay. Маска действует только на снимках.
 - `@var` не нужен: writable становится весь корень, включая `/var`.
 - Хук попадает в initramfs, который перегенерирует Calamares-модуль
   `initramfs` после установки пакета. Начальный снимок создаётся уже после
@@ -210,9 +226,9 @@
 - **grub-btrfs — не из Debian.** Явная, локализованная оговорка от принципа
   «чистый Debian»; версия и исходник зафиксированы.
 - **Timeshift в live-режиме снимки не делает** — это ожидаемо и не лечится.
-- **Возможны дубли при сбое первого снимка.** Если снимок создан, а маркер не
-  записан, повторный запуск создаст ещё один снимок. Допустимо для v1;
-  отметить в документации.
+- **Повтор первого снимка.** Снимок не дублируется: скрипт ищет комментарий
+  `PuraD: initial snapshot` в `timeshift --list`; если снимок уже есть, а
+  `done`-маркера нет, повторяется только `update-grub`.
 
 ## 7. Вне скоупа
 
