@@ -53,6 +53,15 @@ PACKAGE_GROUPS="grub-pc
 grub-efi
 --no-install-recommends timeshift inotify-tools"
 
+# pkexec нужен timeshift-launcher для графического запуска Timeshift. В
+# live-образе он есть, но шаг packages делает `apt-get autoremove` и удаляет
+# его как «больше не нужный» ДО того, как отработает purad-snapshots. В
+# dpkg-статусе сборочного chroot pkexec при этом есть, поэтому обычный
+# `apt-get -d install pkexec` его пропустит (считает уже установленным), и в
+# целевой системе к моменту установки пакета не окажется. Качаем принудительно
+# через --reinstall: apt кладёт .deb в кэш независимо от статуса.
+PKEXEC_PACKAGE="pkexec"
+
 mkdir -p "${POOL}" "${META}" "${CACHE_DIR}/archives/partial"
 
 # Онлайн — всегда обновляем индекс и докачиваем: apt-get -d сам не
@@ -85,9 +94,22 @@ if [ "${APT_ONLINE}" -eq 1 ]; then
 	done <<EOF
 ${PACKAGE_GROUPS}
 EOF
+
+	# pkexec качаем отдельно и с --reinstall: см. комментарий выше.
+	echo "P: скачиваю ${PKEXEC_PACKAGE} (autoremove удаляет его из целевой системы)"
+	if [ -f "${DPKG_STATUS}" ]; then
+		apt-get -y -d --reinstall -o Debug::NoLocking=1 \
+			-o Dir::State::status="${DPKG_STATUS}" \
+			-o Dir::Cache::archives="${CACHE_DIR}/archives" \
+			install "${PKEXEC_PACKAGE}"
+	else
+		apt-get -y -d --reinstall -o Debug::NoLocking=1 \
+			-o Dir::Cache::archives="${CACHE_DIR}/archives" \
+			install "${PKEXEC_PACKAGE}"
+	fi
 else
 	_MISSING=""
-	for _pkg in grub-pc grub-efi timeshift inotify-tools; do
+	for _pkg in grub-pc grub-efi timeshift inotify-tools "${PKEXEC_PACKAGE}"; do
 		find "${CACHE_DIR}/archives" -maxdepth 1 -name "${_pkg}_*.deb" \
 			-print -quit | grep -q . || _MISSING="${_MISSING} ${_pkg}"
 	done

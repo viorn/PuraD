@@ -124,11 +124,13 @@ E: Package 'grub-efi' has no installation candidate
 
 `config/hooks/normal/0500-purad-installer-repo.binary` скачивает оба набора
 (`grub-pc` для BIOS, `grub-efi` + цепочка `shim-signed` для UEFI), а также
-`timeshift` и `inotify-tools` для снимков btrfs. `grub-btrfs` в Debian нет:
-хук собирает локальный `.deb` из вендоренного тарбола
-(`vendor/grub-btrfs/`, версия и sha256 зафиксированы). Всё это кладётся в
-`pool/main/`, индекс `dists/<target>/main/binary-amd64/` с `Release` —
-рядом (сейчас ~26 `.deb`, ~8 МБ). Зависимости считаются по dpkg-статусу
+`timeshift`, `inotify-tools` и `pkexec` для снимков btrfs. `pkexec`
+скачивается принудительно (`--reinstall`): шаг `packages` удаляет его
+`autoremove`-ом, а без него `apt-get install timeshift grub-btrfs pkexec`
+падает целиком. `grub-btrfs` в Debian нет: хук собирает локальный `.deb` из
+вендоренного тарбола (`vendor/grub-btrfs/`, версия и sha256 зафиксированы).
+Всё это кладётся в `pool/main/`, индекс `dists/<target>/main/binary-amd64/`
+с `Release` — рядом (сейчас ~27 `.deb`, ~8 МБ). Зависимости считаются по dpkg-статусу
 **целевой** системы (`chroot/var/lib/dpkg/status`), а не контейнера сборки —
 иначе apt пропустил бы пакеты, которые уже стоят в контейнере, но
 отсутствуют в образе. Скачанные `.deb` кешируются в

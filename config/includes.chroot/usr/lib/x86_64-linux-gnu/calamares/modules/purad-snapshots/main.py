@@ -98,6 +98,10 @@ def apt_get(root, args):
 
 
 def install_packages(root):
+    # pkexec обязателен в одном вызове с timeshift/grub-btrfs: apt ставит
+    # пакеты атомарно, а без pkexec (его удаляет autoremove на шаге packages)
+    # не запустится timeshift-launcher. Поэтому он лежит в репозитории на
+    # носителе, см. config/hooks/normal/0500-purad-installer-repo.binary.
     rc = apt_get(root, ["update"])
     if rc != 0:
         raise RuntimeError("apt-get update завершился с кодом {}".format(rc))

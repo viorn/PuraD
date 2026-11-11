@@ -336,7 +336,10 @@ live-build не поддерживает `config/apt/preferences.chroot`).
 - Только btrfs: Calamares-модуль `purad-snapshots` после `packages`
   определяет ФС целевого корня; на ext4 выходит, ничего не устанавливая и
   не включая.
-- `timeshift` скачивается из Debian `main` при сборке ISO. `grub-btrfs` в
+- `timeshift` и `pkexec` скачиваются из Debian `main` при сборке ISO.
+  `pkexec` нужен для графического запуска Timeshift и качается принудительно:
+  шаг `packages` удаляет его `autoremove`-ом, а атомарный `apt-get install`
+  без него не поставил бы и Timeshift. `grub-btrfs` в
   Debian отсутствует, поэтому upstream v4.14 вендорится в
   `vendor/grub-btrfs/` (sha256 тарбола зафиксирован) и собирается в локальный
   `.deb` хуком `0500-purad-installer-repo.binary`. Сторонних APT-репозиториев

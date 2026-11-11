@@ -100,7 +100,9 @@ if [ "${INSTALLER}" -eq 1 ]; then
     # репозитория на носителе. Если их там нет, установка на btrfs пройдёт,
     # но без Timeshift/grub-btrfs (модуль предупредит и продолжит).
     if [ -f "${REPO_DIR_IDX}" ]; then
-        for pkg in timeshift grub-btrfs inotify-tools; do
+        # pkexec тоже обязателен: шаг packages вычищает его autoremove'ом, а
+        # без него apt-get install timeshift grub-btrfs pkexec падает целиком.
+        for pkg in timeshift grub-btrfs inotify-tools pkexec; do
             grep -q "^Package: ${pkg}$" "${REPO_DIR_IDX}" || \
                 echo "предупреждение: в локальном репозитории нет ${pkg}" >&2
         done

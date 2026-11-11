@@ -74,7 +74,14 @@
   `dpkg-deb` уже есть; `fakeroot` не требуется).
 - Хук `config/hooks/normal/0500-purad-installer-repo.binary` расширяется
   (он уже владеет локальным репозиторием на носителе):
-  - в список скачиваемых пакетов добавляются `timeshift` и `inotify-tools`;
+  - в список скачиваемых пакетов добавляются `timeshift`, `inotify-tools` и
+    `pkexec`;
+  - `pkexec` качается отдельно с `--reinstall`: шаг `packages` удаляет его
+    `autoremove`-ом, но в dpkg-статусе сборочного chroot он есть, поэтому
+    обычный `apt-get -d install pkexec` счёл бы его установленным и не
+    скачал. Без `pkexec` в репозитории атомарный
+    `apt-get install timeshift grub-btrfs pkexec` падает целиком, и Timeshift
+    не ставится;
   - из вендоренных исходников собирается `grub-btrfs_4.14-purad1_all.deb`;
   - все `.deb` копируются в `pool/main`, индекс `Packages`/`Release`
     генерируется как сейчас;
@@ -83,7 +90,8 @@
     `apt-get -d` запускается всегда, а уже скачанные `.deb` apt не
     перекачивает; офлайн (индекс не скачался) хук использует кэш, но только
     если в нём есть все верхнеуровневые пакеты (`grub-pc`, `grub-efi`,
-    `timeshift`, `inotify-tools`). Иначе сборка падает с внятной ошибкой.
+    `timeshift`, `inotify-tools`, `pkexec`). Иначе сборка падает с внятной
+    ошибкой.
 - `scripts/build.sh` копирует `vendor/` в рабочее дерево и включает его в
   отпечаток сборки, иначе изменение тарбола не приведёт к пересборке.
 
@@ -104,9 +112,10 @@
 - **btrfs:**
   1. `apt-get update` и `apt-get install -y --no-install-recommends timeshift
      grub-btrfs pkexec` в целевом chroot (`DEBIAN_FRONTEND=noninteractive`).
-     `pkexec` нужен GUI-обёртке Timeshift (`timeshift-launcher`); в образе он
-     уже есть как зависимость `calamares-settings-debian`, но перечисляем
-     явно, чтобы `--no-install-recommends` не оставил GUI без запуска;
+     `pkexec` нужен GUI-обёртке Timeshift (`timeshift-launcher`). В образе он
+     есть как зависимость `calamares-settings-debian`, но этот пакет шаг
+     `packages` удаляет, а `autoremove` добивает `pkexec`; поэтому он лежит в
+     репозитории на носителе и ставится явно;
   2. пишет `/etc/timeshift/timeshift.json` на основе поставленного пакетом
      `/etc/timeshift/default.json`: `do_first_run=false`, `btrfs_mode=true`,
      `include_btrfs_home=false`, все `schedule_*=false`,
@@ -185,7 +194,8 @@
 ## 4. Поток
 
 1. `make iso` → хук 0500 кладёт в `pool/main` пакеты `timeshift`,
-   `inotify-tools`, их недостающие зависимости и собранный `grub-btrfs`.
+   `inotify-tools`, `pkexec`, их недостающие зависимости и собранный
+   `grub-btrfs`.
 2. Calamares на btrfs: `packages` → `purad-snapshots` (apt install + конфиг +
    маркер + enable) → `initramfscfg` → `initramfs` (хук overlay попадает в
    initramfs) → `sources-media-unmount` → `sources-final`.
@@ -199,7 +209,7 @@
 ## 5. Проверка
 
 - **Сборка:** в `pool/main` есть `grub-btrfs_4.14-purad1_all.deb`, `timeshift`,
-  `inotify-tools`; `Packages`/`Release` содержат их.
+  `inotify-tools`, `pkexec`; `Packages`/`Release` содержат их.
 - **Установка на btrfs (qemu):** `dpkg -l timeshift grub-btrfs`; в
   `/etc/initramfs-tools/{hooks,scripts/local-bottom}/` лежат
   `grub-btrfs-overlay`; после `update-initramfs` они есть в initramfs
