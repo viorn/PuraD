@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 PuraD
+# SPDX-License-Identifier: CC0-1.0
+---
+type:       "job"
+interface:  "python"
+name:       "purad-snapshots"
+script:     "main.py"
+# Нужны rootMountPoint и partitions из partition/mount. Порядок в
+# settings.conf — сразу после packages и до initramfs: пакет grub-btrfs
+# приносит хук, который должен попасть в пересобираемый initramfs.
+requiredModules: [ "partition", "mount" ]
