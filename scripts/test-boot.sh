@@ -96,6 +96,16 @@ if [ "${INSTALLER}" -eq 1 ]; then
         echo "  установка загрузчика (grub-efi/grub-pc) потребует сети" >&2
     fi
 
+    # Снимки btrfs: модуль purad-snapshots ставит эти пакеты из локального
+    # репозитория на носителе. Если их там нет, установка на btrfs пройдёт,
+    # но без Timeshift/grub-btrfs (модуль предупредит и продолжит).
+    if [ -f "${REPO_DIR_IDX}" ]; then
+        for pkg in timeshift grub-btrfs inotify-tools; do
+            grep -q "^Package: ${pkg}$" "${REPO_DIR_IDX}" || \
+                echo "предупреждение: в локальном репозитории нет ${pkg}" >&2
+        done
+    fi
+
     # Шаг packages удаляет из установленной системы live-* пакеты. Если такого
     # пакета в образе нет, apt-get remove завершается с кодом 100 и установка
     # обрывается («Ошибка менеджера пакетов» — так падало на live-task-*).

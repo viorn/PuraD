@@ -45,29 +45,40 @@ META="dists/${DIST}/main/binary-${ARCH}"
 CACHE_DIR="${BUILD_DIR}/cache/purad-installer-repo"
 DPKG_STATUS="${BUILD_DIR}/chroot/var/lib/dpkg/status"
 
-# Явный список: grub-pc тянет grub-pc-bin и grub2-common, grub-efi — цепочку
-# shim-signed. Ставить их одновременно нельзя (Conflicts), поэтому качаем
-# двумя независимыми прогонами apt в один кэш.
-PACKAGES="grub-pc grub-efi"
+# Группы пакетов, которые нельзя ставить одновременно. grub-pc тянет
+# grub-pc-bin и grub2-common, grub-efi — цепочку shim-signed; у них
+# Conflicts, поэтому качаем отдельными прогонами apt в один кэш.
+# timeshift и inotify-tools нужны Calamares-модулю purad-snapshots на btrfs.
+PACKAGE_GROUPS="grub-pc
+grub-efi
+--no-install-recommends timeshift inotify-tools"
 
 mkdir -p "${POOL}" "${META}" "${CACHE_DIR}/archives/partial"
 
-if [ -z "$(find "${CACHE_DIR}/archives" -maxdepth 1 -name '*.deb' -print -quit)" ]; then
-	echo "P: скачиваю пакеты загрузчика для установщика (${PACKAGES})"
-	apt-get update -qq
-	for _pkg in ${PACKAGES}; do
-		if [ -f "${DPKG_STATUS}" ]; then
-			apt-get -y -d -o Debug::NoLocking=1 \
-				-o Dir::State::status="${DPKG_STATUS}" \
-				-o Dir::Cache::archives="${CACHE_DIR}/archives" \
-				install "${_pkg}"
-		else
-			apt-get -y -d -o Debug::NoLocking=1 \
-				-o Dir::Cache::archives="${CACHE_DIR}/archives" \
-				install "${_pkg}"
-		fi
-	done
-fi
+# Кэш не пропускает обновление целиком: apt-get -d сам не перекачивает уже
+# лежащие в archives .deb, а новый пакет в списке иначе никогда бы не попал
+# в кэш после первой сборки.
+echo "P: скачиваю пакеты для установщика"
+apt-get update -qq
+while IFS= read -r _group; do
+	[ -n "${_group}" ] || continue
+	if [ -f "${DPKG_STATUS}" ]; then
+		apt-get -y -d -o Debug::NoLocking=1 \
+			-o Dir::State::status="${DPKG_STATUS}" \
+			-o Dir::Cache::archives="${CACHE_DIR}/archives" \
+			install ${_group}
+	else
+		apt-get -y -d -o Debug::NoLocking=1 \
+			-o Dir::Cache::archives="${CACHE_DIR}/archives" \
+			install ${_group}
+	fi
+done <<EOF
+${PACKAGE_GROUPS}
+EOF
+
+# grub-btrfs в Debian нет: собираем локальный .deb из вендоренного тарбола.
+echo "P: собираю grub-btrfs"
+sh "${BUILD_DIR}/vendor/grub-btrfs/build-deb.sh" "${CACHE_DIR}/archives"
 
 cp -f "${CACHE_DIR}"/archives/*.deb "${POOL}/"
 

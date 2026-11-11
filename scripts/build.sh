@@ -70,7 +70,7 @@ hash_paths() {
 }
 PACKAGES_HASH="$(hash_paths config/common config/package-lists config/preseed profiles)"
 OVERLAY_HASH="$(hash_paths config/hooks config/includes.chroot)"
-BINARY_HASH="$(hash_paths config/common config/bootloaders config/includes.binary profiles VERSION)"
+BINARY_HASH="$(hash_paths config/common config/bootloaders config/includes.binary profiles VERSION vendor)"
 
 echo "== PuraD build =="
 echo "  профиль:   ${TARGET}"
@@ -96,6 +96,8 @@ rm -rf "${WORK_DIR}/config" "${WORK_DIR}/profiles"
 cp -a "${REPO_DIR}/config" "${WORK_DIR}/config"
 cp -a "${REPO_DIR}/profiles" "${WORK_DIR}/profiles"
 cp -a "${REPO_DIR}/VERSION" "${WORK_DIR}/VERSION"
+rm -rf "${WORK_DIR}/vendor"
+cp -a "${REPO_DIR}/vendor" "${WORK_DIR}/vendor"
 
 # --- 3. Сборка ---
 # ВАЖНО: скрипты монтируются в /purad-scripts, а не в /scripts.
