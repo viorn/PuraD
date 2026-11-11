@@ -1,4 +1,4 @@
-# Снимки btrfs: Timeshift + grub-btrfs
+# Снимки btrfs: Timeshift + grub-btrfs и загрузка в снимки
 
 - Дата: 2026-11-11
 - Статус: на вычитке
@@ -10,7 +10,9 @@
 
 1. поставить Timeshift в целевую систему;
 2. сразу после первого запуска установленной системы создать начальный снимок;
-3. поставить grub-btrfs, чтобы снимки были доступны в меню GRUB.
+3. поставить grub-btrfs, чтобы снимки были доступны в меню GRUB;
+4. **обеспечить реальную загрузку в read-only снимок**: система должна
+   стартовать writable, изменения — жить в RAM и пропадать при перезагрузке.
 
 На ext4 ни Timeshift, ни grub-btrfs, ни их юниты в установленной системе не
 появляются.
@@ -25,6 +27,9 @@
   фиксированной версии вендорится в репозиторий и собирается в локальный `.deb`
   при сборке ISO. Сторонних APT-репозиториев и GPG-ключей нет; версия и
   sha256 тарбола зафиксированы. Оговорка документируется в `docs/PLAN.md`.
+- **Загрузка в снимок — через overlayfs в initramfs, а не через `@var`.**
+  Это сохраняет неизменность снимка и делает корень writable на время сессии.
+  Отдельный `@var` не нужен и в этой задаче не добавляется.
 - **Начальный снимок — при первом запуске установленной системы, а не в
   установщике.** Timeshift отказывается создавать снимки в live-режиме:
   `App.live_system()` проверяет `/proc/cmdline` на `boot=live` / `boot=casper`
@@ -42,26 +47,34 @@
 - В репозиторий добавляется `vendor/grub-btrfs/`:
   - `grub-btrfs-v4.14.tar.gz` — upstream-тарбол с GitHub,
     sha256 `4fe2f8a49b39e3e561fc51bbc5a0f81a7222c1e9ef8672e014e0ba3bedad20c6`;
-  - `README.md` — происхождение, версия, sha256, лицензия GPL-3.0, причина
-    вендоринга (в Debian пакета нет).
-- `.deb` собирается из тарбола при сборке ISO, а не хранится в git.
-  Пакет содержит:
+  - `initramfs-tools/` — два скрипта overlayfs из upstream-PR #250
+    (адаптированы под POSIX sh и usrmerge, атрибуция и GPL-3.0 в README);
+  - `README.md` — происхождение, версии/коммиты, sha256, лицензии, причина
+    вендоринга (в Debian пакета нет; PR не влит в upstream).
+- `.deb` собирается из тарбола и вендоренных скриптов при сборке ISO, а не
+  хранится в git. Пакет содержит:
   - `/etc/grub.d/41_snapshots-btrfs` (755);
   - `/etc/default/grub-btrfs/config` (644);
   - `/usr/bin/grub-btrfsd` (744);
   - `/usr/lib/systemd/system/grub-btrfsd.service` (644);
+  - `/etc/initramfs-tools/hooks/grub-btrfs-overlay` (755) — добавляет модуль
+    `overlay` и копирует `findmnt`/`btrfs` в initramfs;
+  - `/etc/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay` (755) —
+    при read-only btrfs-корне монтирует overlayfs;
   - man-страницы `grub-btrfs(8)`, `grub-btrfsd(8)`;
   - `README.md` и `LICENSE` в `/usr/share/doc/grub-btrfs/`.
 - `DEBIAN/control`: `Package: grub-btrfs`, `Version: 4.14-purad1`,
   `Architecture: all`, `Depends: btrfs-progs, grub-common, bash (>= 4),
-  gawk | mawk, inotify-tools`. Maintainer-скриптов нет: пакет не должен
-  запускать `update-grub` и трогать загрузчик в live-chroot.
+  gawk | mawk, inotify-tools, initramfs-tools`. Maintainer-скриптов нет:
+  пакет не должен запускать `update-grub`/`update-initramfs` в live-chroot;
+  initramfs перегенерирует штатный модуль Calamares `initramfs`, который идёт
+  после `packages`.
 - Сборка — `dpkg-deb --build --root-owner-group` (в контейнере сборки
   `dpkg-deb` уже есть; `fakeroot` не требуется).
 - Хук `config/hooks/normal/0500-purad-installer-repo.binary` расширяется
   (он уже владеет локальным репозиторием на носителе):
   - в список скачиваемых пакетов добавляются `timeshift` и `inotify-tools`;
-  - из вендоренного тарбола собирается `grub-btrfs_4.14-purad1_all.deb`;
+  - из вендоренных исходников собирается `grub-btrfs_4.14-purad1_all.deb`;
   - все `.deb` копируются в `pool/main`, индекс `Packages`/`Release`
     генерируется как сейчас;
   - кэш-гейт «если в `cache/purad-installer-repo/archives` есть хоть один
@@ -77,9 +90,10 @@
 - каталог:
   `config/includes.chroot/usr/lib/x86_64-linux-gnu/calamares/modules/purad-snapshots/`
   (`main.py`, `module.desc`);
-- в `settings.conf` добавляется в фазу `exec` сразу после `packages`, пока
-  локальный репозиторий носителя ещё смонтирован (до
-  `sources-media-unmount`/`sources-final`);
+- в `settings.conf` добавляется в фазу `exec` сразу после `packages`, до
+  `initramfscfg`/`initramfs` и до `sources-media-unmount`/`sources-final`.
+  Это важно: initramfs-хук из пакета должен попасть в initramfs, который
+  перегенерирует следующий штатный шаг `initramfs`;
 - определяет ФС целевого корня: `rootPartition` + `partitions` из global
   storage, фолбэк — наличие `subvol=/@` в `<root>/etc/fstab`;
 - **ext4:** пишет debug-сообщение и выходит, ничего не меняя;
@@ -130,41 +144,69 @@
   монтирует снимки в `/run/timeshift/<pid>/backup/timeshift-btrfs`.
 - Drop-in безвреден на ext4: юнита `grub-btrfsd.service` там нет.
 
+### 3.5. Загрузка в read-only снимок (overlayfs в initramfs)
+
+- `/etc/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay` выполняется
+  после монтирования корня, до `run-init`. Если корень — btrfs и
+  `btrfs property get <root> ro` ≠ `ro=false` (то есть это read-only снимок),
+  скрипт:
+  1. переносит смонтированный корень в `lower_dir`;
+  2. монтирует tmpfs и создаёт `upper`/`work`;
+  3. монтирует overlayfs (`lowerdir=снимок`, `upperdir/workdir` в RAM) на
+     место корня.
+- Итог: система стартует как writable, все изменения — в RAM и теряются при
+  перезагрузке; сам снимок остаётся неизменным.
+- Нормальная загрузка не затрагивается: у `@` свойство `ro=false`.
+- `@var` не нужен: writable становится весь корень, включая `/var`.
+- Хук попадает в initramfs, который перегенерирует Calamares-модуль
+  `initramfs` после установки пакета. Начальный снимок создаётся уже после
+  этого, поэтому содержит initramfs с хуком. Снимки, сделанные до установки
+  хука, overlay не получат — в нашей схеме таких нет.
+- Рассмотренные альтернативы: `systemd.volatile=state` (не делает корень
+  writable, issue grub-btrfs #331) и отдельный `@var` (ломает согласованность
+  `/`/`/var`, не нужен при overlayfs).
+
 ## 4. Поток
 
 1. `make iso` → хук 0500 кладёт в `pool/main` пакеты `timeshift`,
    `inotify-tools`, их недостающие зависимости и собранный `grub-btrfs`.
 2. Calamares на btrfs: `packages` → `purad-snapshots` (apt install + конфиг +
-   маркер + enable) → `sources-media-unmount` → `sources-final`.
+   маркер + enable) → `initramfscfg` → `initramfs` (хук overlay попадает в
+   initramfs) → `sources-media-unmount` → `sources-final`.
 3. Первая загрузка установленной системы: `purad-first-snapshot` создаёт
    снимок, обновляет GRUB, ставит маркер и выключает себя.
 4. Дальше `grub-btrfsd` обновляет меню при новых снимках Timeshift.
-5. На ext4 шаг 2 ничего не делает; шаги 3–4 не активны.
+5. Выбор снимка в GRUB → initramfs видит read-only btrfs и поднимает
+   overlayfs → система стартует writable в RAM.
+6. На ext4 шаг 2 ничего не делает; шаги 3–5 не активны.
 
 ## 5. Проверка
 
 - **Сборка:** в `pool/main` есть `grub-btrfs_4.14-purad1_all.deb`, `timeshift`,
   `inotify-tools`; `Packages`/`Release` содержат их.
-- **Установка на btrfs (qemu):** `dpkg -l timeshift grub-btrfs`; после первой
-  загрузки `timeshift --list` показывает начальный снимок; в `/boot/grub/`
-  есть `grub-btrfs.cfg`, в `grub.cfg` — пункты снимков;
-  `systemctl status grub-btrfsd` — active; `purad-first-snapshot` — done.
+- **Установка на btrfs (qemu):** `dpkg -l timeshift grub-btrfs`; в
+  `/etc/initramfs-tools/{hooks,scripts/local-bottom}/` лежат
+  `grub-btrfs-overlay`; после `update-initramfs` они есть в initramfs
+  (`lsinitramfs`); после первой загрузки `timeshift --list` показывает
+  начальный снимок; в `/boot/grub/` есть `grub-btrfs.cfg`, в `grub.cfg` —
+  пункты снимков; `systemctl status grub-btrfsd` — active;
+  `purad-first-snapshot` — done.
+- **Загрузка в снимок (qemu):** выбрать пункт снимка в GRUB;
+  `findmnt -no FSTYPE /` → `overlay`; `mount | grep btrfs` показывает снимок
+  в `lowerdir`; рабочий стол/сессия запускаются; изменения не переживают
+  перезагрузку.
 - **Установка на ext4 (qemu):** `timeshift` и `grub-btrfs` не установлены,
-  `grub-btrfsd.service` и `purad-first-snapshot.service` не включены.
-- **Загрузка в снимок:** отдельная ручная проверка; см. ограничение в §6.
+  initramfs-хуков нет, `grub-btrfsd.service` и
+  `purad-first-snapshot.service` не включены.
 
 ## 6. Ограничения и риски
 
 - **Снимок без `@home`.** Начальный снимок включает только `@` (система).
   `@home` не включаем; пользователь может включить это в GUI Timeshift.
 - **Автоматического расписания нет.** Только начальный снимок и ручные.
-- **`@var` не добавляется.** Для работы Timeshift/grub-btrfs он не нужен.
-  Он нужен только для надёжной загрузки в read-only снимок с графикой:
-  KDE/SDDM и `AccountsService` пишут в `/var/lib`, а при текущей раскладке
-  `/var` (кроме `@log` и `@cache`) остаётся read-only. Надёжный путь
-  восстановления — Timeshift из обычной системы или live-носителя. Если
-  понадобится загрузка в снимок — отдельная задача: `@var` либо overlayfs-хук
-  в initramfs (рекомендуемый вариант).
+- **Overlayfs-хук — из открытого PR #250, не из релиза.** Код GPL-3.0,
+  вендорится с атрибуцией и адаптируется; обязательна проверка на trixie в
+  qemu. Если хук не сработает — фолбэк на отдельный `@var` (отдельная задача).
 - **grub-btrfs — не из Debian.** Явная, локализованная оговорка от принципа
   «чистый Debian»; версия и исходник зафиксированы.
 - **Timeshift в live-режиме снимки не делает** — это ожидаемо и не лечится.
@@ -176,7 +218,8 @@
 
 - расписание снимков (hourly/daily/boot) и политика хранения;
 - включение `@home` в снимки;
-- отдельный `@var` и overlayfs-хук initramfs;
+- отдельный `@var` (не нужен при overlayfs; только как фолбэк);
 - снимки/восстановление из live-сессии;
 - шифрование (LUKS) и Secure Boot;
-- переименование или брендирование Timeshift.
+- переименование или брендирование Timeshift;
+- загрузка в снимки, созданные до установки overlayfs-хука.
