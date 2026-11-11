@@ -357,8 +357,8 @@ live-build не поддерживает `config/apt/preferences.chroot`).
 
 **Готово, когда:** на btrfs в qemu после установки есть начальный снимок, в
 GRUB есть пункты снимков, загрузка в снимок даёт `findmnt -no FSTYPE /` =
-`overlay`; на ext4 Timeshift, grub-btrfs, initramfs-хуки и их юниты
-отсутствуют.
+`overlay`; на ext4 Timeshift и grub-btrfs не устанавливаются, initramfs-хуки
+не появляются, юниты снимков не включаются.
 
 ## 5. Риски
 
