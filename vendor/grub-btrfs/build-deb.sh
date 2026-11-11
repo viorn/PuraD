@@ -70,7 +70,12 @@ install -Dm755 "$HERE/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay" \
 
 # Пункты снимков в GRUB должны грузиться с ro: снимок неизменяем, а
 # initramfs-скрипт поднимет поверх него writable overlay.
-printf '\n# PuraD: boot snapshots read-only; the initramfs overlay makes them writable.\nGRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS="ro"\n' \
+#
+# systemd-remount-fs читает /etc/fstab и пытается remount / с subvol=/@;
+# overlayfs такой remount не принимает (EINVAL: no changes allowed in
+# reconfigure), и каждый snapshot-boot получал бы failed-юнит. Корень уже
+# writable через overlay, поэтому маскируем remount-fs только на снимках.
+printf '\n# PuraD: boot snapshots read-only; the initramfs overlay makes them writable.\n# Mask systemd-remount-fs: overlayfs cannot be remounted, and the overlay is already writable.\nGRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS="ro systemd.mask=systemd-remount-fs.service"\n' \
     >> "$PKG/etc/default/grub-btrfs/config"
 
 SIZE=$(du -sk "$PKG" | awk '{print $1}')

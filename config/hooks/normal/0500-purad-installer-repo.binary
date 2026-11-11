@@ -55,26 +55,48 @@ grub-efi
 
 mkdir -p "${POOL}" "${META}" "${CACHE_DIR}/archives/partial"
 
-# Кэш не пропускает обновление целиком: apt-get -d сам не перекачивает уже
-# лежащие в archives .deb, а новый пакет в списке иначе никогда бы не попал
-# в кэш после первой сборки.
-echo "P: скачиваю пакеты для установщика"
-apt-get update -qq
-while IFS= read -r _group; do
-	[ -n "${_group}" ] || continue
-	if [ -f "${DPKG_STATUS}" ]; then
-		apt-get -y -d -o Debug::NoLocking=1 \
-			-o Dir::State::status="${DPKG_STATUS}" \
-			-o Dir::Cache::archives="${CACHE_DIR}/archives" \
-			install ${_group}
-	else
-		apt-get -y -d -o Debug::NoLocking=1 \
-			-o Dir::Cache::archives="${CACHE_DIR}/archives" \
-			install ${_group}
+# Онлайн — всегда обновляем индекс и докачиваем: apt-get -d сам не
+# перекачивает уже лежащие в archives .deb, зато новый пакет в списке
+# попадёт в кэш. Офлайн (индекс не скачался) — работаем из кэша, но только
+# если в нём есть все верхнеуровневые пакеты; иначе лучше упасть с внятной
+# ошибкой, чем собрать ISO без нужных пакетов.
+APT_ONLINE=0
+if apt-get update -qq; then
+	if find /var/lib/apt/lists -maxdepth 1 -name '*_Packages*' -print -quit \
+			| grep -q .; then
+		APT_ONLINE=1
 	fi
-done <<EOF
+fi
+
+if [ "${APT_ONLINE}" -eq 1 ]; then
+	echo "P: скачиваю пакеты для установщика"
+	while IFS= read -r _group; do
+		[ -n "${_group}" ] || continue
+		if [ -f "${DPKG_STATUS}" ]; then
+			apt-get -y -d -o Debug::NoLocking=1 \
+				-o Dir::State::status="${DPKG_STATUS}" \
+				-o Dir::Cache::archives="${CACHE_DIR}/archives" \
+				install ${_group}
+		else
+			apt-get -y -d -o Debug::NoLocking=1 \
+				-o Dir::Cache::archives="${CACHE_DIR}/archives" \
+				install ${_group}
+		fi
+	done <<EOF
 ${PACKAGE_GROUPS}
 EOF
+else
+	_MISSING=""
+	for _pkg in grub-pc grub-efi timeshift inotify-tools; do
+		find "${CACHE_DIR}/archives" -maxdepth 1 -name "${_pkg}_*.deb" \
+			-print -quit | grep -q . || _MISSING="${_MISSING} ${_pkg}"
+	done
+	if [ -n "${_MISSING}" ]; then
+		echo "P: нет сети и в кэше нет пакетов:${_MISSING}" >&2
+		exit 1
+	fi
+	echo "P: сети нет, использую кэш .deb"
+fi
 
 # grub-btrfs в Debian нет: собираем локальный .deb из вендоренного тарбола.
 echo "P: собираю grub-btrfs"

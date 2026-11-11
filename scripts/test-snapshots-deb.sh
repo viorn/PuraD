@@ -53,6 +53,11 @@ for path in \
     grep -q "${path}\$" <<< "${CONTENTS}" || fail "в пакете нет ${path}"
 done
 
+echo "==> конфиг GRUB"
+CONFIG="$(dpkg-deb --fsys-tarfile "${DEB}" | tar -xO ./etc/default/grub-btrfs/config)"
+grep -q 'GRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS="ro systemd.mask=systemd-remount-fs.service"' \
+    <<< "${CONFIG}" || fail "нет ro и маски systemd-remount-fs для снимков"
+
 echo "==> initramfs-скрипты"
 [ -f "${HOOK}" ] || fail "нет ${HOOK}"
 [ -f "${BOTTOM}" ] || fail "нет ${BOTTOM}"

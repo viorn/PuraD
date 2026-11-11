@@ -42,8 +42,11 @@ overlayfs поверх всего корня.
   Debian с usrmerge hook `btrfs-progs` кладёт бинарник в `/usr/bin`;
 - при ошибке overlay корень возвращается на место, загрузка продолжается
   read-only, а не падает в panic;
-- `GRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS="ro"` добавляется в конфиг
-  пакета: снапшот грузится read-only, writable-слой даёт только overlay.
+- `GRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS="ro systemd.mask=systemd-remount-fs.service"`
+  добавляется в конфиг пакета: снапшот грузится read-only, writable-слой
+  даёт только overlay. `systemd-remount-fs` маскируется на снимках:
+  overlayfs не принимает remount с опциями из `/etc/fstab`
+  (`EINVAL: no changes allowed in reconfigure`), а корень уже writable.
 
 ## Сборка
 
