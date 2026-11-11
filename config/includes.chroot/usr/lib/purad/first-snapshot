@@ -1,0 +1,41 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 PuraD
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Первый запуск установленной системы на btrfs: создать начальный снимок
+# Timeshift (только @, без @home) и обновить меню GRUB.
+#
+# Скрипт best-effort: если Timeshift не смог создать снимок, юнит останется
+# включённым и повторит попытку при следующей загрузке. Если снимок уже есть,
+# но update-grub не удался, снимок не дублируется — повторяется только GRUB.
+set -u
+
+[ -f /var/lib/purad/btrfs ] || exit 0
+[ -f /var/lib/purad/first-snapshot.done ] && exit 0
+command -v timeshift >/dev/null 2>&1 || exit 0
+
+# Загрузка в снимок: корень — overlayfs. Снимок уже есть, создавать нельзя.
+[ "$(findmnt -no FSTYPE / 2>/dev/null)" = "btrfs" ] || exit 0
+
+# Корень должен быть изменяемым btrfs, а не read-only снимком.
+[ "$(btrfs property get / ro 2>/dev/null)" = "ro=false" ] || exit 0
+
+# Защита от потери маркера: снимок с нашим комментарием уже создан?
+if ! timeshift --list --scripted 2>/dev/null | grep -Fq "PuraD: initial snapshot"; then
+    if ! timeshift --create --btrfs --scripted --yes \
+            --comments "PuraD: initial snapshot" --tags O; then
+        echo "purad-first-snapshot: timeshift --create failed" >&2
+        exit 1
+    fi
+fi
+
+# Меню GRUB с пунктами снимков. Без него загрузиться в снимок нельзя,
+# поэтому done не ставим и повторяем при следующей загрузке.
+if ! update-grub; then
+    echo "purad-first-snapshot: update-grub failed, retry on next boot" >&2
+    exit 1
+fi
+
+touch /var/lib/purad/first-snapshot.done
+systemctl disable purad-first-snapshot.service >/dev/null 2>&1 || true
+exit 0

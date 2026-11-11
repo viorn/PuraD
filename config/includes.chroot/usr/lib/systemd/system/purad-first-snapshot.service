@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 PuraD
+# SPDX-License-Identifier: CC0-1.0
+#
+# Первый запуск установленной системы на btrfs: создать начальный снимок
+# Timeshift и обновить меню GRUB. Юнит включается только Calamares-модулем
+# purad-snapshots (на ext4 маркера /var/lib/purad/btrfs нет, условие не
+# выполняется).
+[Unit]
+Description=PuraD: initial btrfs snapshot
+After=local-fs.target
+Before=grub-btrfsd.service
+ConditionPathExists=/var/lib/purad/btrfs
+ConditionPathExists=!/var/lib/purad/first-snapshot.done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/purad/first-snapshot
+RemainAfterExit=yes
+# Снимок большого корня может занять минуты; не обрывать по таймауту.
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
