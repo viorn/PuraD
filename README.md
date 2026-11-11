@@ -146,6 +146,11 @@ dpkg-статусу **целевой** системы (`chroot/var/lib/dpkg/stat
 `mount.conf` (`mountOptions`), а `fstab.conf` в Calamares 3.3 умеет только
 `crypttabOptions`/`tmpOptions`.
 
+В UEFI установщик дополнительно наполняет резервный путь `EFI/boot`
+(shim + `grubx64.efi` + `mmx64.efi` + `grub.cfg`, модуль
+`purad-efi-fallback`): система грузится, даже если прошивка потеряла запись
+`PuraD` в NVRAM. Проверено на qemu/OVMF с чистым `OVMF_VARS`.
+
 - **После установки VM снова грузит live-систему.** В режиме установки VM
   запускается с `-boot d` (CD первым), поэтому «Перезагрузить» в Calamares
   возвращает в live-сессию, а не в установленную систему. Это не ошибка

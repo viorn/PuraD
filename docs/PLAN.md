@@ -250,6 +250,14 @@ Debian не поставляет `partition.conf`, поэтому он наш; �
 - `config/includes.chroot/usr/share/calamares/helpers/calamares-sources-media` —
   замена одноимённого хелпера из `calamares-settings-debian` (см. ниже).
 - `config/includes.chroot/etc/live/tools.conf` — `LIVE_MEDIUM_EJECT_VERBOSE=false`.
+- свой модуль Calamares `purad-efi-fallback` (шаг сразу после `bootloader`) —
+  доделывает резервный путь загрузки UEFI. Calamares при
+  `installEFIFallback: true` копирует в `EFI/boot` только сам загрузчик
+  (`grubx64.efi` → `bootx64.efi`) и не кладёт `grub.cfg`. Прошивка, потерявшая
+  запись в NVRAM, уходила в приглашение `grub>` (проверено на qemu с чистым
+  `OVMF_VARS`). Модуль раскладывает `EFI/boot` как `grub-install --removable`:
+  shim первым этапом, `grubx64.efi`, `mmx64.efi` и `grub.cfg` из каталога
+  загрузчика (`EFI/PuraD`).
 
 **Зависание выключения — две независимые причины:**
 
@@ -268,8 +276,8 @@ Debian не поставляет `partition.conf`, поэтому он наш; �
    до 206 c). `tools.conf` выключает приглашение; лоток по-прежнему открывается
    в фоне.
 
-**Проверено** (qemu, BIOS, `qemu-img`/`debugfs` по образу диска и загрузка
-`make run-installed`):
+**Проверено** (qemu, BIOS и UEFI, `qemu-img`/`debugfs`/`mtools` по образу
+диска и загрузка установленной системы):
 
 - ext4: `/etc/fstab` → `UUID=… / ext4 defaults,noatime 0 1`,
   `grub.cfg` → `menuentry 'PuraD GNU/Linux'`, `GRUB_DISTRIBUTOR='PuraD'`;
@@ -278,7 +286,15 @@ Debian не поставляет `partition.conf`, поэтому он наш; �
   `subvol=/@`, `subvol=/@home`, `subvol=/@log`, `subvol=/@cache` —
   все с `defaults,noatime,compress=zstd`, `pass=0`; файловая система
   монтируется с `zstd` (видно в `dmesg`);
-- после перезагрузки: GRUB → systemd → SDDM (Plasma/Wayland) → Plasma;
+- UEFI (`OVMF`): GPT, ESP 512 МиБ FAT32 (`/boot/efi` с `defaults,umask=0077`),
+  `/etc/fstab` с теми же `subvol=/@…,compress=zstd`; на ESP —
+  `EFI/PuraD/{shimx64,grubx64,mmx64,fbx64}.efi` + `grub.cfg` с
+  `prefix=($root)'/@/boot/grub'` и заполненный `EFI/boot`
+  (`bootx64.efi`=shim, `grubx64.efi`, `mmx64.efi`, `grub.cfg`);
+  в NVRAM создаётся запись `PuraD` → `\EFI\PuraD\shimx64.efi`;
+- после перезагрузки: GRUB → systemd → SDDM (Plasma/Wayland) → Plasma —
+  проверено в BIOS и в UEFI, в UEFI дважды: с сохранённым NVRAM (запись
+  `PuraD`) и со сброшенным NVRAM (загрузка через `\EFI\BOOT\BOOTX64.EFI`);
 - выключение live-сессии после установки: от `systemctl poweroff` до
   `reboot: Power down` — ~4 c вместо 90–206 c. Остаются косметические
   `Failed to unmount /run/live/medium`, `Could not detach loopback /dev/loop0`
