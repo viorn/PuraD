@@ -143,7 +143,9 @@
      `done`-маркера нет;
   3. если снимка с комментарием `PuraD: initial snapshot` ещё нет —
      `timeshift --create --btrfs --scripted --yes
-     --comments "PuraD: initial snapshot" --tags O`;
+     --comments "PuraD: initial snapshot"` (без `--tags`: Timeshift 24.06.6
+     отвергает `O`, хотя печатает его в списке допустимых значений; тег по
+     умолчанию — `ondemand`);
   4. `update-grub`; при ошибке `done` не ставится, юнит повторит только
      `update-grub` при следующей загрузке (снимок не дублируется);
   5. `touch /var/lib/purad/first-snapshot.done`;

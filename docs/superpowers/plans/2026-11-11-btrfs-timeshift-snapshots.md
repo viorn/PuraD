@@ -326,7 +326,7 @@ if timeshift --list --scripted 2>/dev/null | grep -Fq "PuraD: initial snapshot";
 fi
 
 if ! timeshift --create --btrfs --scripted --yes \
-        --comments "PuraD: initial snapshot" --tags O; then
+        --comments "PuraD: initial snapshot"; then
     echo "purad-first-snapshot: timeshift --create failed" >&2
     exit 1
 fi

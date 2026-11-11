@@ -22,8 +22,11 @@ command -v timeshift >/dev/null 2>&1 || exit 0
 
 # Защита от потери маркера: снимок с нашим комментарием уже создан?
 if ! timeshift --list --scripted 2>/dev/null | grep -Fq "PuraD: initial snapshot"; then
+    # --tags не передаём: Timeshift 24.06.6 отвергает "O" в --tags (при этом
+    # сам печатает O в списке допустимых значений). Без --tags --create
+    # создаёт снимок с тегом ondemand — это ровно то, что нужно.
     if ! timeshift --create --btrfs --scripted --yes \
-            --comments "PuraD: initial snapshot" --tags O; then
+            --comments "PuraD: initial snapshot"; then
         echo "purad-first-snapshot: timeshift --create failed" >&2
         exit 1
     fi

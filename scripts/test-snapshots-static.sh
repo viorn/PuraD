@@ -29,8 +29,14 @@ grep -q '^ExecStart=/usr/lib/purad/first-snapshot$' "${UNIT}" || fail "нет Ex
 echo "==> скрипт"
 sh -n "${SCRIPT}" || fail "синтаксис ${SCRIPT}"
 grep -q 'timeshift --create --btrfs --scripted --yes' "${SCRIPT}" || fail "нет timeshift --create"
+# Timeshift 24.06.6 отвергает "O" в --tags, хотя печатает его в списке
+# допустимых; без --tags тег ondemand ставится по умолчанию.
+if grep -q -- '--tags O' "${SCRIPT}"; then
+    fail "Timeshift 24.06.6 не принимает --tags O"
+fi
 grep -q 'findmnt -no FSTYPE /' "${SCRIPT}" || fail "нет защиты от загрузки в снимок"
 grep -q 'PuraD: initial snapshot' "${SCRIPT}" || fail "нет комментария снимка"
+grep -q 'update-grub' "${SCRIPT}" || fail "нет update-grub: меню GRUB не обновится"
 grep -q 'first-snapshot.done' "${SCRIPT}" || fail "нет маркера done"
 
 echo "==> drop-in grub-btrfsd"
