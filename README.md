@@ -141,18 +141,34 @@ dpkg-статусу **целевой** системы (`chroot/var/lib/dpkg/stat
 
 Проверено на живой установке (`make run-install`) и последующей загрузке
 с диска — система ставится и стартует (GRUB → systemd → SDDM → Plasma).
+Установка на btrfs даёт раскладку `@` / `@home` / `@log` / `@cache`
+с `compress=zstd` в `/etc/fstab`; опции монтирования задаются в
+`mount.conf` (`mountOptions`), а `fstab.conf` в Calamares 3.3 умеет только
+`crypttabOptions`/`tmpOptions`.
 
 - **После установки VM снова грузит live-систему.** В режиме установки VM
   запускается с `-boot d` (CD первым), поэтому «Перезагрузить» в Calamares
   возвращает в live-сессию, а не в установленную систему. Это не ошибка
   установки: `make run-installed` поднимает ту же VM без CD и с `-boot c`.
-- **Выключение live-системы после установки идёт ~90 секунд** и печатает
-  `Failed to unmount ... Device or resource busy`,
+- **Выключение live-системы после установки раньше висело ~90 секунд** —
+  исправлено в этапе 7. Причин было две, обе в цепочке выключения live-сессии,
+  а не в установке:
+  - `sources-media -u` из `calamares-settings-debian` не снимал
+    bind-монтирование носителя в целевом корне (точка монтирования искалась
+    через `mount | grep … | cut`, после bind-монтирования вывод становился
+    многострочным, путь получался пустым и `umount` уходил в корень цели).
+    Заменено своим хелпером
+    `config/includes.chroot/usr/share/calamares/helpers/calamares-sources-media`;
+  - `live-medium-eject` из `live-tools` при `LIVE_MEDIUM_EJECT_VERBOSE=true`
+    (умолчание) печатает приглашение и ждёт Enter на `/dev/console`, которого
+    в графической сессии никто не нажмёт — ровно `DefaultTimeoutStopSec`.
+    `config/includes.chroot/etc/live/tools.conf` выключает приглашение.
+
+  Сейчас от `systemctl poweroff` до `reboot: Power down` проходит ~4 секунды.
+  Сообщения `Failed to unmount /run/live/medium`,
   `Could not detach loop /dev/loop0`, `Cannot finalize remaining file systems,
-  loop devices, continuing`. Это `systemd-shutdown` не может отцепить носитель,
-  который остался bind-смонтированным модулем `sources-media`; данные к этому
-  моменту уже на диске. Лечится не нажатием кнопок, а правкой модуля (задача
-  в `docs/PLAN.md`, этап 7) — до тех пор не считается ошибкой установки.
+  loop devices, continuing` в логе остаются — это носитель, который держит
+  live-rootfs; на время выключения они не влияют.
 
 ## Кэш сборки
 

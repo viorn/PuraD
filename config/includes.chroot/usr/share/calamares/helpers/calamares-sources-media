@@ -1,0 +1,82 @@
+#!/bin/sh
+# PuraD: исправленная версия /usr/share/calamares/helpers/calamares-sources-media
+# из calamares-settings-debian 13.0.13 (этап 7, docs/PLAN.md).
+#
+# Что не работало в оригинале. Путь носителя определялся так:
+#
+#     if [ "$(mount | grep $path | cut -f3 -d' ')" = "$path" ]; then
+#
+# После mount --bind в целевую систему в таблице монтирования появляются ДВЕ
+# строки с /run/live/medium (сам носитель и bind внутри $CHROOT), подстановка
+# становится многострочной, сравнение не срабатывает и MEDIUM_PATH остаётся
+# пустым. В режиме -u вместо отмонтирования носителя выполнялся
+# `umount $CHROOT/`, то есть попытка отмонтировать корень целевой системы
+# (занят → busy), а bind-монтирование носителя так и оставалось висеть.
+# Дальше система не могла отцепить /run/live/medium: на выключении
+# systemd-shutdown ждал ~90 секунд
+# («Failed to unmount '/run/shutdown/mounts/...': Device or resource busy»,
+# «Could not detach loop /dev/loop0»).
+#
+# Отличия от оригинала:
+#   * путь носителя определяется через mountpoint(1), а не разбором mount(8);
+#   * в -u носитель отмонтируется явно (с ленивым фолбэком), а не «корень»;
+#   * имя дистрибутива для строки deb берётся из dists/ на носителе, а не
+#     зашито как trixie — иначе профиль sid получал бы неверный источник.
+
+CHROOT=$(mount | grep proc | grep calamares | awk '{print $3}' | sed -e "s#/proc##g")
+KNOWN_MEDIUM_PATHS="/run/live/medium /run/initramfs/live"
+RELEASE=""
+
+# Ищем, что из известных путей реально смонтировано (dracut: /run/initramfs/live,
+# initramfs-tools/live-boot: /run/live/medium).
+for _path in $KNOWN_MEDIUM_PATHS; do
+    if mountpoint -q "$_path"; then
+        MEDIUM_PATH="$_path"
+        break
+    fi
+done
+
+if [ "$1" = "-u" ]; then
+    # Главное: снять bind-монтирование носителя внутри целевой системы, иначе
+    # суперблок носителя остаётся занятым и live-система не выключается.
+    if [ -n "$MEDIUM_PATH" ] && mountpoint -q "$CHROOT$MEDIUM_PATH"; then
+        umount "$CHROOT$MEDIUM_PATH" || umount -l "$CHROOT$MEDIUM_PATH"
+    fi
+    rm -f "$CHROOT/etc/apt/sources.list.d/debian-live-media.list"
+    chroot "$CHROOT" apt-get update
+    exit 0
+fi
+
+# Источник apt на время установки: локальный репозиторий на носителе (его
+# собирает config/hooks/normal/0500-purad-installer-repo.binary).
+# Убираем базовые источники — окончательный sources.list пишет sources-final.
+rm -f "$CHROOT/etc/apt/sources.list.d/base.list"
+
+if [ -z "$MEDIUM_PATH" ]; then
+    echo "calamares-sources-media: носитель не найден среди: $KNOWN_MEDIUM_PATHS" >&2
+    exit 0
+fi
+
+if [ -z "$RELEASE" ]; then
+    for _d in "$MEDIUM_PATH"/dists/*/; do
+        [ -d "$_d" ] || continue
+        RELEASE=$(basename "$_d")
+    done
+fi
+[ -n "$RELEASE" ] || RELEASE="trixie"
+
+if ! mountpoint -q "$CHROOT$MEDIUM_PATH"; then
+    mkdir -p "$CHROOT$MEDIUM_PATH"
+    mount --bind "$MEDIUM_PATH" "$CHROOT$MEDIUM_PATH"
+fi
+
+echo "deb [trusted=yes] file:$MEDIUM_PATH $RELEASE main" \
+    > "$CHROOT/etc/apt/sources.list.d/debian-live-media.list"
+chroot "$CHROOT" apt-get update
+
+# Пустые каталоги убираем, чтобы они не мешали размонтированию /run; если там
+# что-то осталось (например, mounts из других модулей) — rmdir просто не сработает.
+rmdir "$CHROOT/run/live/medium" 2>/dev/null
+rmdir "$CHROOT/run/live" 2>/dev/null
+
+exit 0

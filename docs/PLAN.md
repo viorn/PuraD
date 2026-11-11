@@ -222,19 +222,67 @@ libertas, zd1211, ipw2x00, amdgpu, i915/xe, SOF) плюс пакеты стек�
 
 ### Этап 7. Установка ext4/btrfs
 
-- `partition.conf`: `defaultFileSystem: ext4`, btrfs в списке, GPT,
-  EFI-раздел при UEFI;
-- `mount.conf`: btrfs subvolumes `@` → `/`, `@home` → `/home`, `@log`, `@cache`;
-- `fstab.conf`: `compress=zstd` для btrfs, корректные опции для ext4;
+- `partition.conf`: `defaultFileSystemType: ext4`, btrfs в списке,
+  `initialSwapChoice: none`, EFI-раздел при UEFI;
+- `mount.conf`: btrfs subvolumes `@` → `/`, `@home` → `/home`, `@log`,
+  `@cache`; опции монтирования (`noatime`, `compress=zstd`, `umask=0077` для EFI);
+- `fstab.conf`: только то, что читает Calamares 3.3 (`crypttabOptions`,
+  `tmpOptions`) — опции монтирования приходят из `mount.conf`;
 - `bootloader.conf`: GRUB для BIOS и UEFI;
-- убрать зависание выключения live-системы после установки: `systemd-shutdown`
-  ~90 c не может отцепить loop-устройство носителя, потому что его держит
-  bind-монтирование из модуля `sources-media` (см. README, «Известные
-  шероховатости установки»).
+- убрать зависание выключения live-системы после установки.
 
 **Готово, когда:** тестовые установки в qemu на btrfs и ext4 завершаются;
 после перезагрузки: корректный `fstab`, раскладка subvolume (`@`, `@home`),
 загрузчик стартует, `/home` на отдельном subvolume.
+
+**Реализация** (`config/includes.chroot/etc/calamares/modules/*.conf`):
+Debian не поставляет `partition.conf`, поэтому он наш; остальные три — копии
+конфигов `calamares-settings-debian` без лишних ключей.
+
+- GPT на BIOS **не форсируется**: `requiredPartitionTableType` в `partition.conf`
+  только фильтрует уже существующие таблицы и на авторазаметку не влияет —
+  `PartitionActions::doAutopartition` жёстко берёт `partType = isEfi ? gpt : msdos`.
+  GPT на BIOS требовал бы `bios_grub`-раздела, которого Calamares не создаёт.
+- `fstab.conf` сокращён до `crypttabOptions` + `tmpOptions`: `mountOptions` и
+  `ssdExtraMountOptions` — это Calamares 3.2, в 3.3 они не читаются (схема
+  `fstab.schema.yaml` с `additionalProperties: false` ругалась на них). Опции
+  берутся из `mountOptions` в `mount.conf` через `mountOptionsList` в global storage.
+- `config/includes.chroot/usr/share/calamares/helpers/calamares-sources-media` —
+  замена одноимённого хелпера из `calamares-settings-debian` (см. ниже).
+- `config/includes.chroot/etc/live/tools.conf` — `LIVE_MEDIUM_EJECT_VERBOSE=false`.
+
+**Зависание выключения — две независимые причины:**
+
+1. `sources-media -u` не снимал bind-монтирование носителя. Хелпер Debian искал
+   точку монтирования через `mount | grep $path | cut -f3 -d' '`; после
+   bind-монтирования в chroot вывод становился многострочным и `MEDIUM_PATH`
+   оказывался пустым, поэтому `-u` выполнял `umount $CHROOT/` (корень цели,
+   занят) и bind-монтирование оставалось жить до самого shutdown. Наш хелпер
+   ищет точку через `mountpoint -q` по списку известных путей и снимает именно
+   `$CHROOT$MEDIUM_PATH`.
+2. `live-medium-eject` (из `live-tools`, вызывается
+   `/usr/lib/systemd/system-shutdown/live-tools.shutdown`) при
+   `LIVE_MEDIUM_EJECT_VERBOSE=true` (умолчание) печатает приглашение и делает
+   `read x < /dev/console` — ждёт Enter, которого в графической сессии никто не
+   нажмёт. Через `DefaultTimeoutStopSec` это давало ровно ~90 c (в замерах —
+   до 206 c). `tools.conf` выключает приглашение; лоток по-прежнему открывается
+   в фоне.
+
+**Проверено** (qemu, BIOS, `qemu-img`/`debugfs` по образу диска и загрузка
+`make run-installed`):
+
+- ext4: `/etc/fstab` → `UUID=… / ext4 defaults,noatime 0 1`,
+  `grub.cfg` → `menuentry 'PuraD GNU/Linux'`, `GRUB_DISTRIBUTOR='PuraD'`;
+  диск — `dos`, один раздел 24 GiB;
+- btrfs: subvolume `@`, `@home`, `@log`, `@cache`; `/etc/fstab`:
+  `subvol=/@`, `subvol=/@home`, `subvol=/@log`, `subvol=/@cache` —
+  все с `defaults,noatime,compress=zstd`, `pass=0`; файловая система
+  монтируется с `zstd` (видно в `dmesg`);
+- после перезагрузки: GRUB → systemd → SDDM (Plasma/Wayland) → Plasma;
+- выключение live-сессии после установки: от `systemctl poweroff` до
+  `reboot: Power down` — ~4 c вместо 90–206 c. Остаются косметические
+  `Failed to unmount /run/live/medium`, `Could not detach loopback /dev/loop0`
+  (носитель держит сам live-rootfs) — на время выключения не влияют.
 
 ### Этап 8. Профиль sid
 
