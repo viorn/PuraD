@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PuraD
+# SPDX-License-Identifier: CC0-1.0
+---
+type:       "job"
+interface:  "python"
+name:       "purad-session"
+script:     "main.py"
+# Нужен выбор со страницы packagechooser@session (global storage) и
+# готовый sddm в целевой системе.
+requiredModules: [ "users", "displaymanager" ]

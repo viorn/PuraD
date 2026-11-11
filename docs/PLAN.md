@@ -68,7 +68,8 @@ Live-дистрибутив на базе чистого Debian: liveCD с KDE P
   в `plasma-workspace 6.3.6-2`).
 - Выбор Wayland-сессии убирается из greeter (в live-режиме).
 - Ограничение касается только live-сессии; на установленном диске SDDM предлагает
-  обе сессии.
+  обе сессии, а установщик спрашивает, какую сделать сеансом по умолчанию
+  (этап 7, `packagechooser@session`).
 
 Реализация — компонент live-config
 `config/includes.chroot/usr/lib/live/config/0086-purad-live-x11`: он выполняется
@@ -258,6 +259,18 @@ Debian не поставляет `partition.conf`, поэтому он наш; �
   `OVMF_VARS`). Модуль раскладывает `EFI/boot` как `grub-install --removable`:
   shim первым этапом, `grubx64.efi`, `mmx64.efi` и `grub.cfg` из каталога
   загрузчика (`EFI/PuraD`).
+- выбор сеанса Plasma по умолчанию: страница `packagechooser@session`
+  (`packagechooser-session.conf`, Wayland/X11) в фазе `show` и модуль
+  `purad-session` в `exec` сразу после `displaymanager`. Ключа «сессия по
+  умолчанию» в `/etc/sddm.conf` нет; SDDM 0.21 берёт предвыбор из
+  `[Last] Session=` в `/var/lib/sddm/state.conf` (`sddm-state.conf(5)`:
+  «preselected when the login screen shows up») и после удачного входа
+  обновляет его сам (`RememberLastSession`). Модуль пишет
+  `Session=plasmax11.desktop` или `plasma.desktop` и владельца `sddm`
+  по `/etc/passwd` **целевой** системы (uid в live и в цели не обязан
+  совпадать). Экземпляр `packagechooser` нужен потому, что ключ global
+  storage — `packagechooser_<id экземпляра>`, а ключ `id:` внутри конфига
+  Calamares 3.3 не читает.
 
 **Зависание выключения — две независимые причины:**
 
