@@ -1,0 +1,37 @@
+#!/bin/sh -e
+# SPDX-FileCopyrightText: 2026 PuraD
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# initramfs-tools hook: make the overlay filesystem and findmnt available
+# so local-bottom/grub-btrfs-overlay can mount a writable overlay over a
+# read-only btrfs snapshot.
+#
+# Adapted from grub-btrfs upstream PR #250 (Luis Marsano), GPL-3.0.
+PREREQ=""
+
+prereqs() {
+    echo "$PREREQ"
+}
+
+case "$1" in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+manual_add_modules overlay
+
+# findmnt is not part of the default initramfs; the local-bottom script
+# uses it to distinguish a btrfs root from the live-boot overlay root.
+copy_exec /usr/bin/findmnt /usr/bin
+
+# btrfs-progs normally copies btrfs from its own hook. Keep this explicit:
+# without the binary the local-bottom check silently disables overlay boot.
+if [ -x /usr/bin/btrfs ]; then
+    copy_exec /usr/bin/btrfs /usr/bin
+elif [ -x /bin/btrfs ]; then
+    copy_exec /bin/btrfs /bin
+fi

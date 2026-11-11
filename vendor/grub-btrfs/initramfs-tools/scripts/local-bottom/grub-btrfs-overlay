@@ -1,0 +1,93 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 PuraD
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# initramfs-tools local-bottom script: boot a read-only btrfs snapshot with
+# a writable, non-persistent overlay on top.
+#
+# Adapted from grub-btrfs upstream PR #250 (Luis Marsano), GPL-3.0.
+#
+# The snapshot itself is never modified: the overlay upper/work directories
+# live in a tmpfs and disappear on reboot. A normal boot is untouched
+# because a writable subvolume reports ro=false; a live-boot system reports
+# overlay, not btrfs.
+#
+# This script is best-effort: if the overlay cannot be set up, put the root
+# mount back and continue with the read-only snapshot instead of failing
+# the boot.
+PREREQ=""
+
+prereqs() {
+    echo "$PREREQ"
+}
+
+case "$1" in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+. /scripts/functions
+
+find_tool() {
+    for p in "$@"; do
+        if [ -x "$p" ]; then
+            echo "$p"
+            return 0
+        fi
+    done
+    return 1
+}
+
+BTRFS=$(find_tool /usr/bin/btrfs /bin/btrfs) || exit 0
+FINDMNT=$(find_tool /usr/bin/findmnt /bin/findmnt) || exit 0
+MKTEMP=$(find_tool /usr/bin/mktemp /bin/mktemp) || exit 0
+
+# Only a read-only btrfs root (a snapshot) needs the overlay. A live-boot
+# root is already overlayfs; a normal installed root reports ro=false.
+[ "$("$FINDMNT" -no FSTYPE -M "$rootmnt" 2>/dev/null)" = "btrfs" ] || exit 0
+[ "$("$BTRFS" property get "$rootmnt" ro 2>/dev/null)" != "ro=false" ] || exit 0
+
+log_begin_msg "Mounting writable overlay over read-only btrfs snapshot"
+
+lower_dir=$("$MKTEMP" -d /grub-btrfs-lower.XXXXXX) || {
+    log_failure_msg "cannot create lower dir"
+    log_end_msg 1
+    exit 0
+}
+ram_dir=$("$MKTEMP" -d /grub-btrfs-ram.XXXXXX) || {
+    log_failure_msg "cannot create ram dir"
+    log_end_msg 1
+    exit 0
+}
+upper_dir="$ram_dir/upper"
+work_dir="$ram_dir/work"
+
+if ! mount --move "$rootmnt" "$lower_dir"; then
+    log_failure_msg "cannot move root"
+    log_end_msg 1
+    exit 0
+fi
+
+if ! mount -t tmpfs -o mode=0755 cowspace "$ram_dir"; then
+    log_failure_msg "cannot mount tmpfs"
+    mount --move "$lower_dir" "$rootmnt" 2>/dev/null || true
+    log_end_msg 1
+    exit 0
+fi
+
+mkdir -p "$upper_dir" "$work_dir"
+
+if ! mount -t overlay \
+        -o "lowerdir=$lower_dir,upperdir=$upper_dir,workdir=$work_dir" \
+        rootfs "$rootmnt"; then
+    log_failure_msg "cannot mount overlay; continuing read-only"
+    umount "$ram_dir" 2>/dev/null || true
+    mount --move "$lower_dir" "$rootmnt" 2>/dev/null || true
+    log_end_msg 1
+    exit 0
+fi
+
+log_end_msg
+exit 0
