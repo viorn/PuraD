@@ -8,8 +8,8 @@
   <rect width="800" height="480" fill="url(#bg)"/>
 
   <rect x="352" y="96" width="96" height="96" rx="22" fill="#ffffff" opacity="0.14"/>
-  <text x="400" y="168" text-anchor="middle" font-family="DejaVu Sans"
-        font-weight="bold" font-size="62" fill="#ffffff">P</text>
+  <text x="400" y="163" text-anchor="middle" font-family="DejaVu Sans"
+        font-weight="bold" font-size="52" fill="#ffffff">PD</text>
 
   <text x="400" y="248" text-anchor="middle" font-family="DejaVu Sans"
         font-weight="bold" font-size="52" fill="#ffffff">PuraD</text>
