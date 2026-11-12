@@ -1,5 +1,5 @@
 #!/bin/bash
-# scripts/gen-branding.sh — SVG-исходники брендинга → PNG для Calamares
+# scripts/gen-branding.sh — SVG-исходники брендинга → PNG (Calamares, иконка, og-превью)
 #
 # Calamares не умеет показывать SVG в branding, поэтому картинки рендерятся
 # заранее и коммитятся в config/includes.chroot. Исходники — assets/branding/*.svg.
@@ -32,4 +32,10 @@ PIXMAPS="${REPO_DIR}/config/includes.chroot/usr/share/pixmaps"
 mkdir -p "${PIXMAPS}"
 cp -f "${DST}/purad-logo.png" "${PIXMAPS}/purad-logo.png"
 
-ls -l "${DST}"/*.png "${PIXMAPS}/purad-logo.png"
+# og-картинка для превью лендинга: source — assets/branding/purad-og.svg,
+# рендер кладётся в site/ (его раздаёт GitHub Pages).
+SITE="${REPO_DIR}/site"
+mkdir -p "${SITE}"
+render "${SRC}/purad-og.svg" "${SITE}/og-image.png"
+
+ls -l "${DST}"/*.png "${PIXMAPS}/purad-logo.png" "${SITE}/og-image.png"

@@ -120,5 +120,8 @@ SVG и PNG коммитятся вместе.
 - так как Pages раздаёт только содержимое `site/`, копия логотипа положена в
   `site/purad-logo.svg`, и страница ссылается на неё относительным путём
   (`purad-logo.svg`) вместо `../assets/…`; исходник брендинга остаётся
-  `assets/branding/purad-logo.svg`.
+  `assets/branding/purad-logo.svg`;
+- добавлены `<meta name="description">` и теги Open Graph / Twitter для превью
+  при шеринге; og-картинка — `site/og-image.png` (источник
+  `assets/branding/purad-og.svg`, рендерится `scripts/gen-branding.sh`).
 
