@@ -1,9 +1,9 @@
 #!/bin/bash
-# scripts/run-qemu.sh — интерактивный запуск собранного ISO в qemu (с окном).
+# scripts/run-qemu.sh — интерактивный запуск собранного ISO в qemu.
 #
 # Использование:
 #   scripts/run-qemu.sh [trixie|sid] [--uefi] [--disk [SIZE]] [--installed]
-#                       [--mem MiB] [--tcg]
+#                       [--mem MiB] [--tcg] [--viewer MODE] [--dry-run]
 #
 # Опции:
 #   --uefi        загрузить через UEFI (OVMF); по умолчанию — BIOS
@@ -14,6 +14,13 @@
 #                 снова грузит live-систему, а не установленную.
 #   --mem MiB     память (по умолчанию 3072 — Plasma комфортнее с 3 ГБ)
 #   --tcg         без KVM (медленно, но работает в контейнерах/без /dev/kvm)
+#   --viewer MODE чем показывать экран VM:
+#                   auto (по умолчанию) — самое отзывчивое из доступного:
+#                          окно GTK, иначе SPICE (remote-viewer), иначе VNC;
+#                          без $DISPLAY/$WAYLAND_DISPLAY — только VNC;
+#                   gtk | spice | vnc | none
+#                 VNC слушает 127.0.0.1:5900 и сам открывает `krdc`, если он есть.
+#   --dry-run     показать выбранный viewer и команду qemu, ничего не запуская
 #   -h|--help     эта справка
 #
 # Отличие от scripts/test-boot.sh: тот прогоняет headless-проверки по serial,
@@ -31,6 +38,8 @@ INSTALLED=0
 DISK_SIZE="20G"
 MEM=3072
 ACCEL=(-accel kvm)
+VIEWER="auto"
+DRY_RUN=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -58,8 +67,19 @@ while [ $# -gt 0 ]; do
         --tcg)
             ACCEL=(-accel tcg,thread=multi)
             ;;
+        --viewer)
+            VIEWER="${2:?--viewer требует значение}"
+            shift
+            ;;
+        --viewer=*)
+            VIEWER="${1#--viewer=}"
+            ;;
+        --dry-run)
+            DRY_RUN=1
+            ;;
         -h|--help)
-            sed -n '2,22p' "$0"
+            # Справка — от строки 2 до строки "# Отличие" (не включая её).
+            sed -n '2,/^# Отличие/p' "$0" | sed '$d'
             exit 0
             ;;
         *)
@@ -76,7 +96,7 @@ VERSION="$(tr -d '[:space:]' < "${REPO_DIR}/VERSION")"
 ISO="${REPO_DIR}/builds/${TARGET}/PuraD-${TARGET}-${VERSION}-amd64.hybrid.iso"
 RUN_DIR="${REPO_DIR}/builds/${TARGET}/run"
 
-if [ "${INSTALLED}" -eq 0 ] && [ ! -f "${ISO}" ]; then
+if [ "${DRY_RUN}" -eq 0 ] && [ "${INSTALLED}" -eq 0 ] && [ ! -f "${ISO}" ]; then
     echo "ошибка: ISO не найден: ${ISO}" >&2
     echo "сначала: make iso TARGET=${TARGET}" >&2
     exit 1
@@ -128,19 +148,65 @@ fi
 
 if [ "${USE_DISK}" -eq 1 ]; then
     DISK="${RUN_DIR}/disk.qcow2"
-    if [ "${INSTALLED}" -eq 1 ] && [ ! -f "${DISK}" ]; then
-        echo "ошибка: диска нет: ${DISK}" >&2
-        echo "сначала установите систему: make run-install TARGET=${TARGET}" >&2
-        exit 1
-    fi
-    if [ ! -f "${DISK}" ]; then
-        echo "--> создаю диск ${DISK} (${DISK_SIZE})"
-        qemu-img create -f qcow2 "${DISK}" "${DISK_SIZE}" >/dev/null
-    else
-        echo "--> использую существующий диск ${DISK}"
+    # --dry-run ничего не создаёт и не меняет на диске.
+    if [ "${DRY_RUN}" -eq 0 ]; then
+        if [ "${INSTALLED}" -eq 1 ] && [ ! -f "${DISK}" ]; then
+            echo "ошибка: диска нет: ${DISK}" >&2
+            echo "сначала установите систему: make run-install TARGET=${TARGET}" >&2
+            exit 1
+        fi
+        if [ ! -f "${DISK}" ]; then
+            echo "--> создаю диск ${DISK} (${DISK_SIZE})"
+            qemu-img create -f qcow2 "${DISK}" "${DISK_SIZE}" >/dev/null
+        else
+            echo "--> использую существующий диск ${DISK}"
+        fi
     fi
     ARGS+=(-drive "file=${DISK},if=virtio,format=qcow2,media=disk")
 fi
+
+# --- Способ показа экрана ---------------------------------------------------
+# auto: самое отзывчивое из доступного. Локальное окно GTK рисует без сетевого
+# протокола (быстрее всего), SPICE близок к нему и даёт буфер обмена, VNC —
+# запасной вариант. Без графической сессии локальное окно бессмысленно.
+qemu_has_display() {
+    qemu-system-x86_64 -display help 2>/dev/null | grep -qx "$1"
+}
+
+if [ "${VIEWER}" = "auto" ]; then
+    if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+        VIEWER="vnc"
+    elif qemu_has_display gtk; then
+        VIEWER="gtk"
+    elif command -v remote-viewer >/dev/null 2>&1; then
+        VIEWER="spice"
+    else
+        VIEWER="vnc"
+    fi
+fi
+
+case "${VIEWER}" in
+    gtk)
+        if ! qemu_has_display gtk; then
+            echo "предупреждение: qemu без -display gtk (нет пакета qemu-system-gui)" >&2
+        fi
+        ARGS+=(-display gtk)
+        ;;
+    spice)
+        ARGS+=(-display spice-app)
+        ;;
+    vnc)
+        # -vnc <host>:<display>; порт = 5900 + display, значит нужен display 0.
+        ARGS+=(-vnc 127.0.0.1:0)
+        ;;
+    none)
+        ARGS+=(-display none)
+        ;;
+    *)
+        echo "ошибка: неизвестный --viewer '${VIEWER}' (auto|gtk|spice|vnc|none)" >&2
+        exit 2
+        ;;
+esac
 
 if [ "${INSTALLED}" -eq 1 ]; then
     echo "==> qemu: установленная система на ${RUN_DIR}/disk.qcow2 ($([ "${UEFI}" -eq 1 ] && echo UEFI || echo BIOS), ${MEM} MiB)"
@@ -148,6 +214,40 @@ else
     echo "==> qemu: ${ISO##*/} ($([ "${UEFI}" -eq 1 ] && echo UEFI || echo BIOS), ${MEM} MiB)"
     echo "    вход в live: user / live"
 fi
-echo "    выход из VM — Ctrl+Alt+G, затем закрыть окно"
+case "${VIEWER}" in
+    gtk)   echo "    экран: окно GTK" ;;
+    spice) echo "    экран: окно SPICE (remote-viewer)" ;;
+    none)  echo "    экран: без окна (-display none)" ;;
+    vnc)   echo "    экран: VNC 127.0.0.1:5900 (krdc vnc://127.0.0.1:5900)" ;;
+esac
+echo "    остановить VM — Ctrl+C в этом терминале"
 
-exec qemu-system-x86_64 "${ACCEL[@]}" "${ARGS[@]}" "${@}"
+if [ "${DRY_RUN}" -eq 1 ]; then
+    echo "    viewer: ${VIEWER}"
+    echo "    команда: qemu-system-x86_64 ${ACCEL[*]} ${ARGS[*]}"
+    exit 0
+fi
+
+if [ "${VIEWER}" = "vnc" ]; then
+    qemu-system-x86_64 "${ACCEL[@]}" "${ARGS[@]}" &
+    qemu_pid=$!
+    # Ждём, пока VNC начнёт слушать порт 5900, и только затем подключаем krdc:
+    # иначе krdc откроется раньше qemu и покажет «connection refused».
+    _i=0
+    while [ "${_i}" -lt 100 ]; do
+        if (exec 3<>/dev/tcp/127.0.0.1/5900) 2>/dev/null; then
+            break
+        fi
+        kill -0 "${qemu_pid}" 2>/dev/null || break
+        sleep 0.2
+        _i=$((_i + 1))
+    done
+    if command -v krdc >/dev/null 2>&1; then
+        krdc "vnc://127.0.0.1:5900" >/dev/null 2>&1 &
+    else
+        echo "    krdc не найден: подключитесь вручную — krdc vnc://127.0.0.1:5900"
+    fi
+    wait "${qemu_pid}"
+else
+    exec qemu-system-x86_64 "${ACCEL[@]}" "${ARGS[@]}"
+fi

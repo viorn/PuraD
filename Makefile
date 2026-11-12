@@ -5,16 +5,22 @@ VERSION := $(shell cat VERSION)
 BUILD_DIR := builds/$(TARGET)
 ISO := $(BUILD_DIR)/PuraD-$(TARGET)-$(VERSION)-amd64.hybrid.iso
 
+# Способ показа экрана VM: auto (по умолчанию), gtk, spice, vnc, none.
+# Пример: make run-install QEMU_VIEWER=vnc
+QEMU_VIEWER ?=
+QEMU_VIEWER_ARG := $(if $(QEMU_VIEWER),--viewer $(QEMU_VIEWER),)
+
 help:
 	@echo "PuraD — Live-дистрибутив на базе Debian"
 	@echo
 	@echo "Использование:"
 	@echo "  make iso TARGET=trixie|sid   — собрать ISO"
 	@echo "  make test TARGET=trixie|sid  — загрузить ISO в qemu (BIOS+UEFI)"
-	@echo "  make run TARGET=trixie|sid   — открыть VM с графикой (ручная проверка)"
+	@echo "  make run TARGET=trixie|sid   — открыть VM с графикой (окно само)"
 	@echo "  make run-uefi                — то же через UEFI"
 	@echo "  make run-install             — VM + пустой диск 20G для установки"
 	@echo "  make run-installed           — загрузиться с уже установленного диска"
+	@echo "  QEMU_VIEWER=gtk|spice|vnc|none — способ показа экрана (по умолчанию auto)"
 	@echo "  make firmware TARGET=trixie|sid — проверить набор прошивок в ISO"
 	@echo "  make installer TARGET=trixie|sid — проверить запуск Calamares в live"
 	@echo "  make clean                   — удалить артефакты, СОХРАНИТЬ кэш сборки"
@@ -28,21 +34,21 @@ help:
 iso:
 	@bash scripts/build.sh $(TARGET)
 
-# Интерактивная проверка глазами: окно qemu, обычная VM.
+# Интерактивная проверка глазами: VM, окно открывается автоматически.
 run:
-	@bash scripts/run-qemu.sh $(TARGET)
+	@bash scripts/run-qemu.sh $(TARGET) $(QEMU_VIEWER_ARG)
 
 run-uefi:
-	@bash scripts/run-qemu.sh $(TARGET) --uefi
+	@bash scripts/run-qemu.sh $(TARGET) --uefi $(QEMU_VIEWER_ARG)
 
 # Проверка установки: BIOS + пустой диск 20G для Calamares.
 run-install:
-	@bash scripts/run-qemu.sh $(TARGET) --disk
+	@bash scripts/run-qemu.sh $(TARGET) --disk $(QEMU_VIEWER_ARG)
 
 # После установки: загружаемся с диска, без CD. Иначе BIOS снова берёт CD
 # (в режиме установки VM запускается с -boot d) и открывается live-система.
 run-installed:
-	@bash scripts/run-qemu.sh $(TARGET) --installed
+	@bash scripts/run-qemu.sh $(TARGET) --installed $(QEMU_VIEWER_ARG)
 
 test:
 	@bash scripts/test-boot.sh $(TARGET) --all --desktop

@@ -24,6 +24,10 @@ make run-install TARGET=trixie
 # После установки — загрузиться с диска (без CD, иначе BIOS снова грузит live)
 make run-installed TARGET=trixie
 
+# Экран VM открывается сам: окно GTK (быстрее всего), иначе SPICE, иначе VNC.
+# Выбрать способ вручную: QEMU_VIEWER=gtk|spice|vnc|none
+make run-installed TARGET=trixie QEMU_VIEWER=vnc
+
 # Очистить артефакты (кэш пакетов сохраняется)
 make clean
 
@@ -46,7 +50,7 @@ deked/
 │   ├── build.sh              # podman --privileged, bind-mount
 │   ├── inside-build.sh       # lb config/bootstrap/chroot/binary внутри контейнера
 │   ├── test-boot.sh          # headless-прогрев ISO по serial
-│   ├── run-qemu.sh           # VM с графикой: посмотреть глазами
+│   ├── run-qemu.sh           # VM: экран сам (GTK/SPICE/VNC), QEMU_VIEWER
 │   ├── check-firmware.sh     # состав прошивок в squashfs
 │   └── gen-branding.sh       # SVG → PNG для Calamares
 ├── config/                   # дерево live-build
