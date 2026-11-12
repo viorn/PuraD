@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # scripts/test-boot.sh — проверка загрузки ISO PuraD в qemu (BIOS и/или UEFI).
 #
 # Использование:

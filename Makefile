@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 .PHONY: help iso run run-uefi run-install run-installed test firmware installer clean distclean clean-images
 
 TARGET ?= trixie

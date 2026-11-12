@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # scripts/build.sh — сборка ISO PuraD внутри podman-контейнера
 #
 # Использование:

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # scripts/gen-branding.sh — SVG-исходники брендинга → PNG (Calamares, иконка, og-превью)
 #
 # Calamares не умеет показывать SVG в branding, поэтому картинки рендерятся

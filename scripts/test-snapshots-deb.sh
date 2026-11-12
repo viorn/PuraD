@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # scripts/test-snapshots-deb.sh — проверка вендоренного grub-btrfs.
 #
 # Собирает локальный .deb тем же скриптом, что и хук 0500 при сборке ISO,

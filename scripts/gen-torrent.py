@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """scripts/gen-torrent.py — собрать .torrent для артефакта релиза PuraD.
 
 Пишем торрент-файл сами, потому что mktorrent/transmission-create в окружении

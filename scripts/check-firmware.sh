@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # scripts/check-firmware.sh — проверка набора прошивок в готовом ISO (Этап 5)
 #
 # Использование: scripts/check-firmware.sh [target]

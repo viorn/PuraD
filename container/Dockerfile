@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # container/Dockerfile — окружение сборки PuraD
 #
 # Базовый образ выбирается таргетом, чтобы версии live-build/dpkg в контейнере

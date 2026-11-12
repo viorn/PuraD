@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # scripts/test-run-qemu-viewer.sh — проверка выбора способа показа экрана
 # в scripts/run-qemu.sh (--viewer/--dry-run). Ничего не запускает.
 set -euo pipefail

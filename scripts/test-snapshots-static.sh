@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # scripts/test-snapshots-static.sh — статические проверки systemd-части
 # снимков btrfs: юнит первого снимка, скрипт и drop-in grub-btrfsd.
 set -euo pipefail

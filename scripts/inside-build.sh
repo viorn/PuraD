@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # scripts/inside-build.sh — выполняется ВНУТРИ контейнера (см. scripts/build.sh)
 #
 # Использование: inside-build.sh <trixie|sid>
