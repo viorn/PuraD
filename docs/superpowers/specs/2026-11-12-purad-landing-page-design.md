@@ -123,5 +123,9 @@ SVG и PNG коммитятся вместе.
   `assets/branding/purad-logo.svg`;
 - добавлены `<meta name="description">` и теги Open Graph / Twitter для превью
   при шеринге; og-картинка — `site/og-image.png` (источник
-  `assets/branding/purad-og.svg`, рендерится `scripts/gen-branding.sh`).
+  `assets/branding/purad-og.svg`, рендерится `scripts/gen-branding.sh`);
+- образ ISO (2,3 ГБ) не помещается в GitHub Releases (лимит 2 ГиБ на файл),
+  поэтому раздаётся через BitTorrent: к релизу приложены `.torrent` и `.sha256`,
+  на странице — кнопка «Скачать торрент» и magnet-ссылка; `.torrent` собирается
+  `scripts/gen-torrent.py`.
 
