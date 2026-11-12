@@ -64,6 +64,8 @@ def main():
     ap.add_argument("--piece-mib", type=int, default=2, help="размер куска в МиБ (по умолчанию 2)")
     ap.add_argument("--comment", default="", help="комментарий в торренте")
     ap.add_argument("--tracker", action="append", default=[], help="дополнительный трекер (можно несколько)")
+    ap.add_argument("--web-seed", action="append", default=[],
+                    help="URL web-seed (url-list, BEP 19); можно несколько раз")
     args = ap.parse_args()
 
     if not os.path.isfile(args.input):
@@ -93,6 +95,10 @@ def main():
         "created by": "PuraD scripts/gen-torrent.py",
         "creation date": int(time.time()),
     }
+    if args.web_seed:
+        meta["url-list"] = args.web_seed if len(args.web_seed) > 1 else args.web_seed[0]
+        for ws in args.web_seed:
+            print("    web-seed: %s" % ws)
 
     data = bencode(meta)
     with open(args.output, "wb") as fh:
