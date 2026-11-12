@@ -2,6 +2,10 @@
 
 [English](README.md) | **Русский**
 
+[![Website](https://img.shields.io/badge/website-viorn.github.io%2FPuraD-1f7fb8)](https://viorn.github.io/PuraD/)
+
+**Сайт проекта:** https://viorn.github.io/PuraD/
+
 Live-дистрибутив на базе чистого Debian: liveCD с KDE Plasma, установка на
 ext4/btrfs из коробки, без сторонних репозиториев.
 

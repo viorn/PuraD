@@ -2,6 +2,10 @@
 
 [**English**](README.md) | [Русский](README.ru.md)
 
+[![Website](https://img.shields.io/badge/website-viorn.github.io%2FPuraD-1f7fb8)](https://viorn.github.io/PuraD/)
+
+**Project website:** https://viorn.github.io/PuraD/
+
 A live distribution built on pure Debian: a live CD with KDE Plasma, out-of-the-box
 installation to ext4/btrfs, and no third-party repositories.
 
