@@ -1,20 +1,25 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PuraD — live-дистрибутив Debian с KDE Plasma</title>
-<meta name="description" content="PuraD — live-дистрибутив на базе чистого Debian с KDE Plasma: установка на ext4 или btrfs из коробки, Wi-Fi и GPU-прошивки уже в образе, без сторонних репозиториев.">
+<title>PuraD — Debian-based live distribution with KDE Plasma</title>
+<meta name="description" content="PuraD is a live distribution built on pure Debian with KDE Plasma: install to ext4 or btrfs out of the box, with Wi-Fi and GPU firmware already in the image and no third-party repositories.">
+<link rel="canonical" href="https://viorn.github.io/PuraD/">
+<link rel="alternate" hreflang="en" href="https://viorn.github.io/PuraD/">
+<link rel="alternate" hreflang="ru" href="https://viorn.github.io/PuraD/ru/">
+<link rel="alternate" hreflang="x-default" href="https://viorn.github.io/PuraD/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="PuraD">
-<meta property="og:title" content="PuraD — live-дистрибутив Debian с KDE Plasma">
-<meta property="og:description" content="Live-дистрибутив на базе чистого Debian с KDE Plasma: установка на ext4 или btrfs из коробки, Wi-Fi и GPU-прошивки уже в образе.">
+<meta property="og:title" content="PuraD — Debian-based live distribution with KDE Plasma">
+<meta property="og:description" content="Live distribution built on pure Debian with KDE Plasma: install to ext4 or btrfs out of the box, with Wi-Fi and GPU firmware already in the image.">
 <meta property="og:url" content="https://viorn.github.io/PuraD/">
 <meta property="og:image" content="https://viorn.github.io/PuraD/og-image.png">
-<meta property="og:locale" content="ru_RU">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="ru_RU">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="PuraD — live-дистрибутив Debian с KDE Plasma">
-<meta name="twitter:description" content="Live-дистрибутив на базе чистого Debian с KDE Plasma: установка на ext4 или btrfs из коробки, Wi-Fi и GPU-прошивки уже в образе.">
+<meta name="twitter:title" content="PuraD — Debian-based live distribution with KDE Plasma">
+<meta name="twitter:description" content="Live distribution built on pure Debian with KDE Plasma: install to ext4 or btrfs out of the box, with Wi-Fi and GPU firmware already in the image.">
 <meta name="twitter:image" content="https://viorn.github.io/PuraD/og-image.png">
 <link rel="icon" type="image/svg+xml" href="purad-logo.svg">
 <style>
@@ -56,6 +61,8 @@
   nav{display:flex;gap:18px;flex-wrap:wrap}
   nav a{color:var(--muted);text-decoration:none;font-size:.95rem}
   nav a:hover{color:var(--text)}
+  .lang{display:inline-block;color:var(--muted);text-decoration:none;font-size:.9rem;border:1px solid rgba(143,208,240,.3);border-radius:999px;padding:4px 12px}
+  .lang:hover{color:var(--text);border-color:var(--bar)}
 
   .hero{
     background:linear-gradient(135deg,var(--accent),var(--accent-dark));
@@ -118,24 +125,25 @@
       <img src="purad-logo.svg" alt="PuraD" width="40" height="40">
       <span>PuraD</span>
     </a>
-    <nav aria-label="Основная навигация">
-      <a href="#features">Особенности</a>
-      <a href="#download">Скачать</a>
-      <a href="#docs">Документация</a>
+    <nav aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#download">Download</a>
+      <a href="#docs">Documentation</a>
     </nav>
+    <a class="lang" href="ru/" hreflang="ru" lang="ru">Русский</a>
   </div>
 </header>
 
 <main>
   <section id="top" class="hero">
     <div class="wrap hero-inner">
-      <img class="hero-logo" src="purad-logo.svg" alt="Логотип PuraD" width="120" height="120">
+      <img class="hero-logo" src="purad-logo.svg" alt="PuraD logo" width="120" height="120">
       <h1>PuraD</h1>
-      <p class="tagline">Live-дистрибутив на базе чистого Debian с KDE Plasma</p>
-      <p class="lead">Загрузочный liveCD: система работает прямо с носителя, а установщик Calamares ставит её на ext4 или btrfs — на чистом Debian, со всеми прошивками Wi-Fi и GPU уже в образе.</p>
+      <p class="tagline">Live distribution based on pure Debian with KDE Plasma</p>
+      <p class="lead">A bootable live CD: the system runs straight from the medium, and the Calamares installer puts it on ext4 or btrfs — on pure Debian, with all Wi-Fi and GPU firmware already in the image.</p>
       <div class="cta">
-        <a class="btn btn-primary" href="https://folderhost.viorn89.crazedns.ru/s/f40de915abcf1dd983fb76e96d442a5c">Скачать ISO</a>
-        <a class="btn" href="https://github.com/viorn/PuraD/releases/download/v2026.11.09/PuraD-trixie-2026.11.09-amd64.hybrid.iso.torrent">Торрент</a>
+        <a class="btn btn-primary" href="https://folderhost.viorn89.crazedns.ru/s/f40de915abcf1dd983fb76e96d442a5c">Download ISO</a>
+        <a class="btn" href="https://github.com/viorn/PuraD/releases/download/v2026.11.09/PuraD-trixie-2026.11.09-amd64.hybrid.iso.torrent">Torrent</a>
         <a class="btn" href="https://github.com/viorn/PuraD">GitHub</a>
       </div>
     </div>
@@ -143,31 +151,31 @@
 
   <section id="features" class="section">
     <div class="wrap">
-      <h2>Ключевые особенности</h2>
+      <h2>Key features</h2>
       <div class="cards">
         <article class="card">
-          <h3>Чистый Debian</h3>
-          <p>Только официальные компоненты архива: <code>main</code>, <code>contrib</code>, <code>non-free-firmware</code>. Никаких сторонних репозиториев и GPG-ключей.</p>
+          <h3>Pure Debian</h3>
+          <p>Only official archive components: <code>main</code>, <code>contrib</code>, <code>non-free-firmware</code>. No third-party repositories or GPG keys.</p>
         </article>
         <article class="card">
           <h3>KDE Plasma 6</h3>
-          <p>Полноценный рабочий стол KDE Plasma 6 уже в live-сессии; Calamares стартует на X11 гарантированно.</p>
+          <p>A full KDE Plasma 6 desktop right in the live session; Calamares is guaranteed to start on X11.</p>
         </article>
         <article class="card">
-          <h3>ext4 и btrfs из коробки</h3>
-          <p>Установщик ставит систему на ext4 или btrfs; на btrfs — раскладка <code>@</code>/<code>@home</code>/<code>@log</code>/<code>@cache</code> с <code>compress=zstd</code>.</p>
+          <h3>ext4 and btrfs out of the box</h3>
+          <p>The installer puts the system on ext4 or btrfs; on btrfs it uses the <code>@</code>/<code>@home</code>/<code>@log</code>/<code>@cache</code> layout with <code>compress=zstd</code>.</p>
         </article>
         <article class="card">
-          <h3>Wi-Fi и GPU-прошивки в образе</h3>
-          <p>Intel, Atheros, MediaTek, Realtek, Broadcom и графика amdgpu/i915/xe уже в ISO — для настройки Wi-Fi сеть не нужна.</p>
+          <h3>Wi-Fi and GPU firmware in the image</h3>
+          <p>Intel, Atheros, MediaTek, Realtek, Broadcom and amdgpu/i915/xe graphics are already in the ISO — no network is needed to set up Wi-Fi.</p>
         </article>
         <article class="card">
-          <h3>Снимки btrfs</h3>
-          <p>На btrfs ставятся Timeshift и grub-btrfs: снимок создаётся при первом запуске, а загрузка в него — из меню GRUB.</p>
+          <h3>btrfs snapshots</h3>
+          <p>On btrfs, Timeshift and grub-btrfs are installed: a snapshot is created on first boot, and you can boot into it from the GRUB menu.</p>
         </article>
         <article class="card">
-          <h3>Воспроизводимая сборка</h3>
-          <p>Всё дерево live-build лежит в git, сборка идёт в podman: результат повторяется на любой машине.</p>
+          <h3>Reproducible build</h3>
+          <p>The whole live-build tree lives in git and the build runs in podman: the result repeats on any machine.</p>
         </article>
       </div>
     </div>
@@ -175,12 +183,12 @@
 
   <section id="download" class="section section-alt">
     <div class="wrap">
-      <h2>Как скачать или собрать</h2>
-      <p>Образ (2,3 ГБ) можно скачать <a href="https://folderhost.viorn89.crazedns.ru/s/f40de915abcf1dd983fb76e96d442a5c">напрямую по HTTP</a> (с поддержкой докачки) — или через BitTorrent: <a href="https://github.com/viorn/PuraD/releases/download/v2026.11.09/PuraD-trixie-2026.11.09-amd64.hybrid.iso.torrent">.torrent</a> и magnet-ссылка ниже. В торренте прописан web-seed на тот же хост, поэтому образ тянется и по HTTP, и у пиров.</p>
+      <h2>How to download or build</h2>
+      <p>The 2.3 GB image can be downloaded <a href="https://folderhost.viorn89.crazedns.ru/s/f40de915abcf1dd983fb76e96d442a5c">directly over HTTP</a> (resume supported) — or via BitTorrent: <a href="https://github.com/viorn/PuraD/releases/download/v2026.11.09/PuraD-trixie-2026.11.09-amd64.hybrid.iso.torrent">.torrent</a> and the magnet link below. The torrent carries a web seed pointing at the same host, so the image is fetched both over HTTP and from peers.</p>
       <pre><code>magnet:?xt=urn:btih:BE36F5212BDC7FCE9C8F18A1AC08E7E39417BCCF&amp;dn=PuraD-trixie-2026.11.09-amd64.hybrid.iso&amp;tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&amp;tr=udp%3A%2F%2Fopen.tracker.cl%3A1337%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A6969%2Fannounce&amp;tr=udp%3A%2F%2Fexodus.desync.com%3A6969%2Fannounce&amp;tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce</code></pre>
-      <p>После загрузки проверьте контрольную сумму (<a href="https://github.com/viorn/PuraD/releases/download/v2026.11.09/PuraD-trixie-2026.11.09-amd64.hybrid.iso.sha256">sha256</a>):</p>
+      <p>After downloading, verify the checksum (<a href="https://github.com/viorn/PuraD/releases/download/v2026.11.09/PuraD-trixie-2026.11.09-amd64.hybrid.iso.sha256">sha256</a>):</p>
       <pre><code>sha256sum -c PuraD-trixie-2026.11.09-amd64.hybrid.iso.sha256</code></pre>
-      <p>Или соберите образ сами из исходников:</p>
+      <p>Or build the image yourself from source:</p>
       <pre><code>make iso TARGET=trixie
 make run-install TARGET=trixie</code></pre>
     </div>
@@ -188,10 +196,10 @@ make run-install TARGET=trixie</code></pre>
 
   <section id="docs" class="section">
     <div class="wrap">
-      <h2>Документация</h2>
+      <h2>Documentation</h2>
       <ul class="links">
-        <li><a href="https://github.com/viorn/PuraD/blob/main/README.md">README</a> — обзор проекта и быстрый старт.</li>
-        <li><a href="https://github.com/viorn/PuraD/tree/main/docs">Каталог docs/</a> — архитектура сборки, план проекта и релизный чеклист.</li>
+        <li><a href="https://github.com/viorn/PuraD/blob/main/README.md">README</a> — project overview and quick start.</li>
+        <li><a href="https://github.com/viorn/PuraD/tree/main/docs">docs/ directory</a> — build architecture, project plan and release checklist.</li>
       </ul>
     </div>
   </section>
@@ -199,7 +207,7 @@ make run-install TARGET=trixie</code></pre>
 
 <footer class="site-footer">
   <div class="wrap">
-    <p>PuraD · версия 2026.11.09</p>
+    <p>PuraD · version 2026.11.09</p>
     <p>© 2026 PuraD</p>
   </div>
 </footer>

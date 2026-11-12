@@ -1,44 +1,46 @@
 # PuraD
 
-Live-дистрибутив на базе чистого Debian: liveCD с KDE Plasma, установка на
-ext4/btrfs из коробки, без сторонних репозиториев.
+[**English**](README.md) | [Русский](README.ru.md)
 
-## Быстрый старт
+A live distribution built on pure Debian: a live CD with KDE Plasma, out-of-the-box
+installation to ext4/btrfs, and no third-party repositories.
+
+## Quick start
 
 ```bash
-# Собрать ISO для trixie
+# Build the ISO for trixie
 make iso TARGET=trixie
 
-# Собрать ISO для sid
+# Build the ISO for sid
 make iso TARGET=sid
 
-# Проверить загрузку ISO в qemu (BIOS + UEFI)
+# Test the ISO boot in qemu (BIOS + UEFI)
 make test TARGET=trixie
 
-# Проверить, что в образе есть все прошивки Wi-Fi/GPU
+# Verify that the image contains all Wi-Fi/GPU firmware
 make firmware TARGET=trixie
 
-# Установить систему: VM с графикой + пустой диск 20G (builds/<target>/run/)
+# Install the system: VM with graphics + an empty 20G disk (builds/<target>/run/)
 make run-install TARGET=trixie
 
-# После установки — загрузиться с диска (без CD, иначе BIOS снова грузит live)
+# After installation — boot from the disk (without the CD, otherwise BIOS loads live again)
 make run-installed TARGET=trixie
 
-# Экран VM открывается сам: окно SPICE (быстрее), иначе GTK, иначе VNC.
-# Выбрать способ вручную: QEMU_VIEWER=gtk|spice|vnc|none
+# The VM screen opens by itself: SPICE (faster), otherwise GTK, otherwise VNC.
+# Choose manually: QEMU_VIEWER=gtk|spice|vnc|none
 make run-installed TARGET=trixie QEMU_VIEWER=vnc
 
-# Очистить артефакты (кэш пакетов сохраняется)
+# Clean artifacts (the package cache is preserved)
 make clean
 
-# Удалить всё, включая кэш сборки
+# Remove everything, including the build cache
 make distclean
 
-# Показать справку
+# Show help
 make help
 ```
 
-## Архитектура сборки
+## Build architecture
 
 ```
 deked/
@@ -48,14 +50,14 @@ deked/
 │   └── Dockerfile            # debian:{trixie,sid} + live-build
 ├── scripts/
 │   ├── build.sh              # podman --privileged, bind-mount
-│   ├── inside-build.sh       # lb config/bootstrap/chroot/binary внутри контейнера
-│   ├── test-boot.sh          # headless-прогрев ISO по serial
-│   ├── run-qemu.sh           # VM: экран сам (GTK/SPICE/VNC), QEMU_VIEWER
-│   ├── check-firmware.sh     # состав прошивок в squashfs
-│   └── gen-branding.sh       # SVG → PNG для Calamares
-├── config/                   # дерево live-build
-│   ├── common                # файл с LB_* переменными
-│   ├── bootstrap             # файл: зеркало, дистрибутив, компоненты
+│   ├── inside-build.sh       # lb config/bootstrap/chroot/binary inside the container
+│   ├── test-boot.sh          # headless ISO warm-up over serial
+│   ├── run-qemu.sh           # VM: shows the screen itself (GTK/SPICE/VNC), QEMU_VIEWER
+│   ├── check-firmware.sh     # firmware contents in the squashfs
+│   └── gen-branding.sh       # SVG → PNG for Calamares
+├── config/                   # live-build tree
+│   ├── common                # file with LB_* variables
+│   ├── bootstrap             # file: mirror, distribution, components
 │   ├── package-lists/
 │   ├── hooks/
 │   ├── includes.chroot/
@@ -64,194 +66,196 @@ deked/
 ├── profiles/
 │   ├── trixie.conf
 │   └── sid.conf
-├── builds/                   # артефакты (в .gitignore)
+├── builds/                   # artifacts (git-ignored)
 └── docs/
     ├── PLAN.md
     ├── build.md
     └── checklist-release.md
 ```
 
-### Ключевые решения
+### Key decisions
 
-- **live-build v3** — гибридный BIOS+UEFI ISO, squashfs-образ, checksums «из коробки»
-- **Calamares** — GUI-установщик с выбором ext4/btrfs
-- **Debian-installer не включается** (`--installer=false`) — экономия ~1 ГБ
-- **KDE Plasma 6 Core** — `plasma-desktop` + базовые приложения
-- **X11 жёстко** в live-сессии — Calamares гарантированно стартует
-- **Сборка в podman** — изоляция, хостовые APT-источники не попадают в образ
-- **Только официальные компоненты** — `main contrib non-free-firmware`
-- **Один профиль различий** — trixie и sid собираются одним деревом конфига
+- **live-build v3** — hybrid BIOS+UEFI ISO, squashfs image, checksums out of the box
+- **Calamares** — GUI installer with ext4/btrfs selection
+- **The Debian installer is not included** (`--installer=false`) — saves ~1 GB
+- **KDE Plasma 6 Core** — `plasma-desktop` + basic applications
+- **X11 hard-wired** in the live session — Calamares is guaranteed to start
+- **Building in podman** — isolation, host APT sources never leak into the image
+- **Official components only** — `main contrib non-free-firmware`
+- **A single profile for differences** — trixie and sid build from one config tree
 
-### Wi-Fi охват
+### Wi-Fi coverage
 
-Набор задан явным списком `config/package-lists/400-firmware.list.chroot`
-(`LB_FIRMWARE_CHROOT=false`): Intel, Atheros/ath10k/ath11k/ath12k, MediaTek mt76,
-Realtek rtw88/rtw89, Broadcom brcm80211 и b43, Marvell libertas, ZyDAS zd1211,
-IPW2x00, carl9170; из графики — amdgpu, i915/xe, Intel SOF.
+The set is defined by an explicit list in
+`config/package-lists/400-firmware.list.chroot` (`LB_FIRMWARE_CHROOT=false`):
+Intel, Atheros/ath10k/ath11k/ath12k, MediaTek mt76, Realtek rtw88/rtw89,
+Broadcom brcm80211 and b43, Marvell libertas, ZyDAS zd1211, IPW2x00, carl9170;
+for graphics — amdgpu, i915/xe, Intel SOF.
 
-Прошивки b43 скачиваются postinst-скриптом `firmware-b43-installer` **во время
-сборки** (в контейнере есть сеть) и попадают в `/lib/firmware/b43` уже в ISO —
-пользователю для Wi-Fi сеть не нужна.
+The b43 firmware is downloaded by the `firmware-b43-installer` postinst script
+**during the build** (the container has network access) and lands in
+`/lib/firmware/b43` already inside the ISO — the user needs no network for Wi-Fi.
 
-Осознанно не включаем (сотни мегабайт ради серверных карт и nvidia):
+Deliberately excluded (hundreds of megabytes for server NICs and nvidia):
 `firmware-netronome`, `firmware-nvidia-graphics`, `firmware-marvell-prestera`,
 `firmware-nvidia-tesla-535-gsp`, `firmware-bnx2*`, `firmware-cavium`,
 `firmware-myricom`, `firmware-netxen`, `firmware-qlogic`, `firmware-siano`,
 `firmware-liquidio`, `firmware-ast`, `firmware-cirrus`, `firmware-ivtv`.
-Список проверяется `make firmware`.
+The list is checked by `make firmware`.
 
-> **Примечание:** `broadcom-sta-dkms` (wl.ko) и `rtl8821cu-dkms`
-> отсутствуют в официальном архиве Debian — часть новых чипов
-> потребует ручной доустановки после инсталла.
+> **Note:** `broadcom-sta-dkms` (wl.ko) and `rtl8821cu-dkms` are absent from the
+> official Debian archive — some newer chips will require a manual install after
+> the system is installed.
 
-## Установщик: локальный apt-репозиторий на носителе
+## Installer: a local apt repository on the medium
 
-Шаг загрузчика в Calamares (`bootloader-config` из `calamares-settings-debian`)
-ставит grub в целевую систему обычным apt:
+The bootloader step in Calamares (`bootloader-config` from
+`calamares-settings-debian`) installs grub into the target system using plain apt:
 
 ```
 chroot $CHROOT apt-get -y install grub-efi     # UEFI
 chroot $CHROOT apt-get -y install grub-pc      # BIOS
 ```
 
-В самой live-системе этих пакетов нет и быть не может: `grub-pc` и
-`grub-efi-amd64` объявляют друг другу `Conflicts`, поэтому в образ нельзя
-положить «оба сразу». А пока не отработал модуль `sources-final`, у целевой
-системы единственный источник apt — сам носитель: `sources-media` пишет
-`deb [trusted=yes] file:/run/live/medium trixie main`. Если на носителе пусто,
-установка обрывается на загрузчике:
+The live system itself has none of these packages and cannot have them: `grub-pc`
+and `grub-efi-amd64` declare `Conflicts` against each other, so the image cannot
+ship "both at once". And until the `sources-final` module runs, the target system's
+only apt source is the medium itself: `sources-media` writes
+`deb [trusted=yes] file:/run/live/medium trixie main`. If the medium is empty, the
+installation stops at the bootloader:
 
 ```
 Package grub-efi is not available, but is referred to by another package.
 E: Package 'grub-efi' has no installation candidate
 ```
 
-`config/hooks/normal/0500-purad-installer-repo.binary` скачивает оба набора
-(`grub-pc` для BIOS, `grub-efi` + цепочка `shim-signed` для UEFI), а также
-`timeshift`, `inotify-tools` и `pkexec` для снимков btrfs. `pkexec`
-скачивается принудительно (`--reinstall`): шаг `packages` удаляет его
-`autoremove`-ом, а без него `apt-get install timeshift grub-btrfs pkexec`
-падает целиком. `grub-btrfs` в Debian нет: хук собирает локальный `.deb` из
-вендоренного тарбола (`vendor/grub-btrfs/`, версия и sha256 зафиксированы).
-Всё это кладётся в `pool/main/`, индекс `dists/<target>/main/binary-amd64/`
-с `Release` — рядом (сейчас ~27 `.deb`, ~8 МБ). Зависимости считаются по dpkg-статусу
-**целевой** системы (`chroot/var/lib/dpkg/status`), а не контейнера сборки —
-иначе apt пропустил бы пакеты, которые уже стоят в контейнере, но
-отсутствуют в образе. Скачанные `.deb` кешируются в
-`builds/<target>/cache/purad-installer-repo/`, так что пересборка без сети
-тоже работает.
+`config/hooks/normal/0500-purad-installer-repo.binary` downloads both sets
+(`grub-pc` for BIOS, `grub-efi` + the `shim-signed` chain for UEFI), as well as
+`timeshift`, `inotify-tools` and `pkexec` for btrfs snapshots. `pkexec` is
+downloaded forcibly (`--reinstall`): the `packages` step removes it via
+`autoremove`, and without it `apt-get install timeshift grub-btrfs pkexec` fails
+entirely. `grub-btrfs` is not in Debian: the hook builds a local `.deb` from the
+vendored tarball (`vendor/grub-btrfs/`, version and sha256 pinned). All of this
+goes into `pool/main/`, with the index `dists/<target>/main/binary-amd64/` and a
+`Release` file next to it (currently ~27 `.deb`, ~8 MB). Dependencies are computed
+from the dpkg status of the **target** system (`chroot/var/lib/dpkg/status`), not
+from the build container — otherwise apt would skip packages that are already
+installed in the container but absent from the image. The downloaded `.deb` files
+are cached in `builds/<target>/cache/purad-installer-repo/`, so rebuilding without
+network access also works.
 
-Итог: установка не требует интернета вплоть до `sources-final`, который
-возвращает обычные зеркала Debian. Если понадобится ставить офлайн что-то ещё,
-достаточно добавить имя пакета в `PACKAGE_GROUPS` этого хука (по одной группе
-на строку; `grub-pc` и `grub-efi` — отдельно, они конфликтуют). `make
-installer` предупреждает, если репозитория на носителе нет или в нём нет
-пакетов снимков.
+The bottom line: installation requires no internet until `sources-final`, which
+restores the normal Debian mirrors. If you need to install something else offline,
+just add the package name to that hook's `PACKAGE_GROUPS` (one group per line;
+`grub-pc` and `grub-efi` separately, as they conflict). `make installer` warns if
+the medium has no repository or no snapshot packages in it.
 
-## Снимки btrfs
+## btrfs snapshots
 
-На установке с корнем на btrfs PuraD ставит Timeshift и grub-btrfs. Начальный
-снимок создаётся при первом запуске установленной системы (в live-режиме
-Timeshift снимки не делает) и содержит только корневой субтом `@`:
-`/home`, `/var/log` и `/var/cache` — отдельные субтомы и в снимок не входят.
-Расписание по умолчанию выключено — настройте его сами в Timeshift.
+On an installation with a btrfs root, PuraD installs Timeshift and grub-btrfs. The
+initial snapshot is created on the first boot of the installed system (Timeshift
+does not make snapshots in live mode) and contains only the root subvolume `@`:
+`/home`, `/var/log` and `/var/cache` are separate subvolumes and are not part of
+the snapshot. The schedule is disabled by default — configure it yourself in
+Timeshift.
 
-- Открыть Timeshift: меню приложений → Timeshift (или `timeshift-launcher`).
-- Загрузиться в снимок: перезагрузиться, в меню GRUB выбрать
-  «PuraD snapshots» → нужный снимок.
-- Система из снимка стартует writable: изменения живут в RAM и пропадают при
-  перезагрузке, сам снимок не меняется. Это режим восстановления, а не
-  повседневная работа.
-- `grub-btrfsd` обновляет меню GRUB, когда Timeshift создаёт новые снимки.
+- Open Timeshift: application menu → Timeshift (or `timeshift-launcher`).
+- Boot into a snapshot: reboot, and in the GRUB menu choose "PuraD snapshots" →
+  the snapshot you need.
+- A system booted from a snapshot runs writable: changes live in RAM and are lost
+  on reboot, and the snapshot itself is not modified. This is a recovery mode, not
+  everyday use.
+- `grub-btrfsd` updates the GRUB menu when Timeshift creates new snapshots.
 
-Снимки доступны только на btrfs. На ext4 Timeshift и grub-btrfs не
-устанавливаются, initramfs-хуки не появляются, а юниты снимков не включаются:
-файл `purad-first-snapshot.service` лежит в образе, но его условие на маркер
-`/var/lib/purad/btrfs` не выполняется.
+Snapshots are available only on btrfs. On ext4, Timeshift and grub-btrfs are not
+installed, no initramfs hooks appear, and the snapshot units are not enabled: the
+`purad-first-snapshot.service` file is present in the image, but its condition on
+the `/var/lib/purad/btrfs` marker is never met.
 
-## Известные шероховатости установки
+## Known installation rough edges
 
-Проверено на живой установке (`make run-install`) и последующей загрузке
-с диска — система ставится и стартует (GRUB → systemd → SDDM → Plasma).
-Установка на btrfs даёт раскладку `@` / `@home` / `@log` / `@cache`
-с `compress=zstd` в `/etc/fstab`; опции монтирования задаются в
-`mount.conf` (`mountOptions`), а `fstab.conf` в Calamares 3.3 умеет только
+Verified on a live installation (`make run-install`) followed by booting from the
+disk — the system installs and starts (GRUB → systemd → SDDM → Plasma). A btrfs
+installation produces the layout `@` / `@home` / `@log` / `@cache` with
+`compress=zstd` in `/etc/fstab`; the mount options are set in `mount.conf`
+(`mountOptions`), while `fstab.conf` in Calamares 3.3 only supports
 `crypttabOptions`/`tmpOptions`.
 
-В UEFI установщик дополнительно наполняет резервный путь `EFI/boot`
-(shim + `grubx64.efi` + `mmx64.efi` + `grub.cfg`, модуль
-`purad-efi-fallback`): система грузится, даже если прошивка потеряла запись
-`PuraD` в NVRAM. Проверено на qemu/OVMF с чистым `OVMF_VARS`.
+In UEFI, the installer additionally populates the fallback path `EFI/boot`
+(shim + `grubx64.efi` + `mmx64.efi` + `grub.cfg`, module `purad-efi-fallback`):
+the system boots even if the firmware lost its `PuraD` entry in NVRAM. Verified on
+qemu/OVMF with a clean `OVMF_VARS`.
 
-- **После установки VM снова грузит live-систему.** В режиме установки VM
-  запускается с `-boot d` (CD первым), поэтому «Перезагрузить» в Calamares
-  возвращает в live-сессию, а не в установленную систему. Это не ошибка
-  установки: `make run-installed` поднимает ту же VM без CD и с `-boot c`.
-- **Выключение live-системы после установки раньше висело ~90 секунд** —
-  исправлено в этапе 7. Причин было две, обе в цепочке выключения live-сессии,
-  а не в установке:
-  - `sources-media -u` из `calamares-settings-debian` не снимал
-    bind-монтирование носителя в целевом корне (точка монтирования искалась
-    через `mount | grep … | cut`, после bind-монтирования вывод становился
-    многострочным, путь получался пустым и `umount` уходил в корень цели).
-    Заменено своим хелпером
+- **After installation, the VM loads the live system again.** In install mode the
+  VM starts with `-boot d` (CD first), so "Reboot" in Calamares returns to the live
+  session rather than the installed system. This is not an installation bug:
+  `make run-installed` starts the same VM without the CD and with `-boot c`.
+- **Shutting down the live system after installation used to hang for ~90 seconds** —
+  fixed in stage 7. There were two causes, both in the live session's shutdown
+  chain rather than in the installation:
+  - `sources-media -u` from `calamares-settings-debian` did not unmount the
+    bind-mount of the medium in the target root (the mount point was looked up via
+    `mount | grep … | cut`, and after the bind-mount the output became multi-line,
+    the path came out empty, and `umount` went to the target's root). Replaced with
+    our own helper
     `config/includes.chroot/usr/share/calamares/helpers/calamares-sources-media`;
-  - `live-medium-eject` из `live-tools` при `LIVE_MEDIUM_EJECT_VERBOSE=true`
-    (умолчание) печатает приглашение и ждёт Enter на `/dev/console`, которого
-    в графической сессии никто не нажмёт — ровно `DefaultTimeoutStopSec`.
-    `config/includes.chroot/etc/live/tools.conf` выключает приглашение.
+  - `live-medium-eject` from `live-tools` with `LIVE_MEDIUM_EJECT_VERBOSE=true`
+    (the default) prints a prompt and waits for Enter on `/dev/console`, which
+    nobody presses in a graphical session — exactly `DefaultTimeoutStopSec`.
+    `config/includes.chroot/etc/live/tools.conf` disables the prompt.
 
-  Сейчас от `systemctl poweroff` до `reboot: Power down` проходит ~4 секунды.
-  Сообщения `Failed to unmount /run/live/medium`,
-  `Could not detach loop /dev/loop0`, `Cannot finalize remaining file systems,
-  loop devices, continuing` в логе остаются — это носитель, который держит
-  live-rootfs; на время выключения они не влияют.
+  Now `systemctl poweroff` takes ~4 seconds to reach `reboot: Power down`. The
+  messages `Failed to unmount /run/live/medium`, `Could not detach loop /dev/loop0`,
+  `Cannot finalize remaining file systems, loop devices, continuing` still appear
+  in the log — that is the medium holding the live rootfs; they do not affect
+  shutdown time.
 
-## Кэш сборки
+## Build cache
 
-live-build кэширует bootstrap, chroot и скачанные `.deb` в
+live-build caches bootstrap, chroot and downloaded `.deb` files in
 `builds/<target>/cache/`:
 
-- `make clean` удаляет ISO и рабочие деревья, но **оставляет** кэш —
-  следующая сборка не качает пакеты заново;
-- `make distclean` удаляет всё, включая кэш;
-- кэш раздельный для trixie и sid (разные релизы).
+- `make clean` removes the ISO and working trees but **keeps** the cache — the next
+  build does not download packages again;
+- `make distclean` removes everything, including the cache;
+- the cache is separate for trixie and sid (different releases).
 
-Для кэша, общего между профилями и проектами, можно поднять на хосте
-[apt-cacher-ng](https://wiki.debian.org/AptCacherNg):
+For a cache shared between profiles and projects, you can run
+[apt-cacher-ng](https://wiki.debian.org/AptCacherNg) on the host:
 
 ```bash
 sudo apt install apt-cacher-ng
 PURAD_APT_PROXY=http://host.containers.internal:3142 make iso TARGET=trixie
 ```
 
-`host.containers.internal` — адрес хоста из rootless podman. Если прокси
-недоступен, сборка просто обратится к зеркалу напрямую.
+`host.containers.internal` is the host's address from rootless podman. If the proxy
+is unavailable, the build simply talks to the mirror directly.
 
-## Особенность rootless podman: `/dev` в chroot
+## Rootless podman quirk: /dev in the chroot
 
-`mknod` в rootless-контейнере запрещён (EPERM даже с `--privileged`),
-поэтому debootstrap оставляет в `chroot/dev/` пустые обычные файлы вместо
-устройств. Это не косметика: пакеты пишут в `/dev/null` как в файл, и запись
-одного процесса ломает следующий. Так падала установка KDE на
+`mknod` is not permitted in a rootless container (EPERM even with `--privileged`),
+so debootstrap leaves empty regular files instead of devices in `chroot/dev/`. This
+is not cosmetic: packages write to `/dev/null` as if it were a file, and one
+process's write breaks the next one. That is how the KDE installation failed on
 `dictionaries-common` → `aspell-autobuildhash`:
 
 ```
-aspell --per-conf=/dev/null ...        # rc=0, но aspell сохраняет в per-conf
-                                       # строку "/usr/bin/aspell"
+aspell --per-conf=/dev/null ...        # rc=0, but aspell saves the line
+                                       # "/usr/bin/aspell" into per-conf
 Error: /dev/null:1: The key "/usr/bin/aspell" is unknown.
 ```
 
-Поэтому `scripts/inside-build.sh` разбивает `lb build` на
-`lb bootstrap` → `lb chroot` → `lb binary` и на время стадий с postinst-скриптами
-монтирует `/dev` контейнера в `chroot/dev` через `mount --rbind`
-(нерекурсивный `--bind` не годится: в контейнере `/dev/null` — отдельный моунт
-поверх tmpfs, и `--bind` подсунул бы вместо него файл-заглушку).
+Therefore `scripts/inside-build.sh` splits `lb build` into `lb bootstrap` →
+`lb chroot` → `lb binary` and, during the stages that run postinst scripts, mounts
+the container's `/dev` into `chroot/dev` via `mount --rbind` (a non-recursive
+`--bind` is not enough: in the container `/dev/null` is a separate mount on top of
+tmpfs, and `--bind` would substitute the placeholder file for it).
 
-Если сборка упала посреди chroot-стадии, проще начать стадию с нуля:
+If the build fails in the middle of the chroot stage, it is easier to start the
+stage from scratch:
 
 ```bash
 PURAD_FORCE_CLEAN=1 make iso TARGET=trixie
 ```
 
-См. [PLAN.md](docs/PLAN.md) для полного описания целей, архитектуры и этапов.
+See [PLAN.md](docs/PLAN.md) for the full description of goals, architecture and stages.
