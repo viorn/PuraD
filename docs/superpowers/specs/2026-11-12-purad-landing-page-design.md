@@ -108,3 +108,17 @@ SVG и PNG коммитятся вместе.
 
 > Логотип `P` при желании легко откатить: правка только в этих трёх SVG + повтор
 > `scripts/gen-branding.sh`.
+
+## Обновление: публикация
+
+Репозиторий опубликован (`https://github.com/viorn/PuraD`), поэтому:
+
+- ссылки-заглушки заменены на реальные: репозиторий, `…/releases`, `…/blob/main/README.md`,
+  `…/tree/main/docs`;
+- лендинг публикуется через GitHub Actions + Pages (`.github/workflows/pages.yml`,
+  publish-каталог `site/`) по адресу `https://viorn.github.io/PuraD/`;
+- так как Pages раздаёт только содержимое `site/`, копия логотипа положена в
+  `site/purad-logo.svg`, и страница ссылается на неё относительным путём
+  (`purad-logo.svg`) вместо `../assets/…`; исходник брендинга остаётся
+  `assets/branding/purad-logo.svg`.
+
