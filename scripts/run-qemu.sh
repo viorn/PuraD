@@ -16,7 +16,7 @@
 #   --tcg         без KVM (медленно, но работает в контейнерах/без /dev/kvm)
 #   --viewer MODE чем показывать экран VM:
 #                   auto (по умолчанию) — самое отзывчивое из доступного:
-#                          окно GTK, иначе SPICE (remote-viewer), иначе VNC;
+#                          окно SPICE (remote-viewer), иначе GTK, иначе VNC;
 #                          без $DISPLAY/$WAYLAND_DISPLAY — только VNC;
 #                   gtk | spice | vnc | none
 #                 VNC слушает 127.0.0.1:5900 и сам открывает `krdc`, если он есть.
@@ -166,9 +166,10 @@ if [ "${USE_DISK}" -eq 1 ]; then
 fi
 
 # --- Способ показа экрана ---------------------------------------------------
-# auto: самое отзывчивое из доступного. Локальное окно GTK рисует без сетевого
-# протокола (быстрее всего), SPICE близок к нему и даёт буфер обмена, VNC —
-# запасной вариант. Без графической сессии локальное окно бессмысленно.
+# auto: самое отзывчивое из доступного. На практике SPICE (remote-viewer)
+# оказался шустрее локального GTK (и даёт буфер обмена), поэтому он первый;
+# GTK — запасной, VNC — для удалённой работы. Без графической сессии
+# локальное окно бессмысленно, идём в VNC.
 qemu_has_display() {
     qemu-system-x86_64 -display help 2>/dev/null | grep -qx "$1"
 }
@@ -176,10 +177,10 @@ qemu_has_display() {
 if [ "${VIEWER}" = "auto" ]; then
     if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
         VIEWER="vnc"
-    elif qemu_has_display gtk; then
-        VIEWER="gtk"
     elif command -v remote-viewer >/dev/null 2>&1; then
         VIEWER="spice"
+    elif qemu_has_display gtk; then
+        VIEWER="gtk"
     else
         VIEWER="vnc"
     fi

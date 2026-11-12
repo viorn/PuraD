@@ -24,7 +24,7 @@ make run-install TARGET=trixie
 # После установки — загрузиться с диска (без CD, иначе BIOS снова грузит live)
 make run-installed TARGET=trixie
 
-# Экран VM открывается сам: окно GTK (быстрее всего), иначе SPICE, иначе VNC.
+# Экран VM открывается сам: окно SPICE (быстрее), иначе GTK, иначе VNC.
 # Выбрать способ вручную: QEMU_VIEWER=gtk|spice|vnc|none
 make run-installed TARGET=trixie QEMU_VIEWER=vnc
 

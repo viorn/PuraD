@@ -26,11 +26,16 @@ case "$(dry --viewer=spice)" in *"-display spice-app"*) ;; *) fail "--viewer=spi
 echo "==> auto"
 # Без $DISPLAY/$WAYLAND_DISPLAY auto обязан выбрать VNC.
 case "$(dry)" in *"-vnc 127.0.0.1:0"*) ;; *) fail "auto без графической сессии должен давать vnc" ;; esac
-# Если GTK доступен и сессия есть — auto должен предпочесть его.
-if qemu-system-x86_64 -display help 2>/dev/null | grep -qx gtk && [ -n "${DISPLAY:-}" ]; then
+# С графической сессией auto предпочитает SPICE, если есть remote-viewer.
+if command -v remote-viewer >/dev/null 2>&1 && [ -n "${DISPLAY:-}" ]; then
+    case "$(bash "$RUN" trixie --installed --dry-run)" in
+        *"-display spice-app"*) ;;
+        *) fail "auto с сессией и remote-viewer должен давать spice" ;;
+    esac
+elif qemu-system-x86_64 -display help 2>/dev/null | grep -qx gtk && [ -n "${DISPLAY:-}" ]; then
     case "$(bash "$RUN" trixie --installed --dry-run)" in
         *"-display gtk"*) ;;
-        *) fail "auto с DISPLAY и доступным GTK должен давать gtk" ;;
+        *) fail "auto с сессией и без remote-viewer должен давать gtk" ;;
     esac
 fi
 
