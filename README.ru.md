@@ -2,7 +2,7 @@
 
 [English](README.md) | **Русский**
 
-[![Website](https://img.shields.io/badge/website-viorn.github.io%2FPuraD-1f7fb8)](https://viorn.github.io/PuraD/)
+[![Website](https://img.shields.io/badge/website-viorn.github.io%2FPuraD-1f7fb8)](https://viorn.github.io/PuraD/) [![License: GPL v3](https://img.shields.io/github/license/viorn/PuraD)](LICENSE)
 
 **Сайт проекта:** https://viorn.github.io/PuraD/
 
@@ -260,3 +260,11 @@ PURAD_FORCE_CLEAN=1 make iso TARGET=trixie
 ```
 
 См. [PLAN.md](docs/PLAN.md) для полного описания целей, архитектуры и этапов.
+
+## Лицензия
+
+PuraD распространяется под **GNU General Public License v3.0 или новее**
+(GPL-3.0-or-later). Полный текст — в [LICENSE](LICENSE).
+
+Вендоренные исходники `vendor/grub-btrfs` — тоже под GPL-3.0-or-later (текст лицензии
+лежит внутри тарбола). Сам образ ISO — это набор пакетов Debian, каждый под своей лицензией.
