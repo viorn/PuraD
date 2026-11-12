@@ -8,9 +8,13 @@ config/stage*
 
 # IDE
 .idea/
+.openidea/
 .vscode/
 *.swp
 *~
+
+# Служебная папка агента (brainstorm, планы)
+.superpowers/
 
 # Скриншоты из ручных проверок (в корне репозитория)
 /Снимок экрана*
