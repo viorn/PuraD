@@ -1,139 +1,139 @@
-# PuraD — лендинг-визитка: дизайн
+# PuraD — landing page: design
 
-## Задача
+## Task
 
-Публичная страница-визитка проекта PuraD: одна статичная HTML-страница,
-которая кратко рассказывает, что это за дистрибутив, показывает ключевые
-особенности и ведёт к скачиванию/сборке и документации.
+A public landing page for the PuraD project: one static HTML page
+that briefly tells what this distribution is, shows the key
+features and leads to download/build and documentation.
 
-Аудитория — те, кто впервые узнаёт о проекте (из ссылки, поста, скриншота).
-Успех: страница открывается локально без сети, все секции на месте,
-ссылки-заглушки помечены, выглядит аккуратно на десктопе и на телефоне.
+The audience is those who are learning about the project for the first time (from a link, a post, a screenshot).
+Success: the page opens locally without a network, all sections are in place,
+stub links are marked, it looks neat on desktop and on a phone.
 
-## Область
+## Scope
 
-- **Входит:**
-  - один файл `site/index.html` со встроенными стилями;
-  - связанное изменение брендинга: монограмма **P → PD** во всех SVG-исходниках
-    и перегенерация производных PNG (см. раздел «Изменение брендинга»).
-- **Не входит:** сборка/минификация, фреймворки, внешние CDN, аналитика,
-  формы, скриншоты, мультиязычность, отдельные CSS/JS-файлы.
-- Репозиторий ещё не опубликован, готовых ISO нет — ссылки на GitHub/Releases
-  ставятся заглушками и помечаются для последующей замены.
+- **Included:**
+  - one file `site/index.html` with embedded styles;
+  - a related branding change: the monogram **P → PD** in all SVG sources
+    and regeneration of the derived PNGs (see the "Branding change" section).
+- **Not included:** build/minification, frameworks, external CDNs, analytics,
+  forms, screenshots, multilanguage, separate CSS/JS files.
+- The repository is not published yet, there are no ready ISOs — links to GitHub/Releases
+  are set as stubs and marked for later replacement.
 
-## Расположение и ресурсы
+## Location and resources
 
-- Файл: `site/index.html` (папка `site/` — отделяет страницу от сборки и docs).
-- CSS — внутри `<style>`; JavaScript не используется (кнопок копирования нет).
-- Логотип — относительный путь `../assets/branding/purad-logo.svg`; он же
-  подключается как favicon (`<link rel="icon" …>`).
-- Внешние шрифты и CDN не используются: только системные шрифты
+- File: `site/index.html` (the `site/` folder separates the page from the build and docs).
+- CSS — inside `<style>`; JavaScript is not used (there are no copy buttons).
+- Logo — the relative path `../assets/branding/purad-logo.svg`; it is also
+  included as the favicon (`<link rel="icon" …>`).
+- External fonts and CDNs are not used: only system fonts
   (`system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`).
-- Язык страницы — русский (`<html lang="ru">`).
+- The page language is Russian (`<html lang="ru">`).
 
-## Структура страницы
+## Page structure
 
-1. **Шапка** (`<header>`) — логотип + название, навигация-якоря
-   (Особенности · Скачать · Документация). Липкая при скролле.
-2. **Герой** (`<section id="top">`) — логотип, `<h1>PuraD</h1>`,
-   слоган «Live-дистрибутив на базе чистого Debian с KDE Plasma»,
-   короткое описание в 1–2 предложения, кнопки:
-   - **«Скачать ISO»** → Releases (заглушка);
-   - **«GitHub»** → репозиторий (заглушка).
-3. **Ключевые особенности** (`<section id="features">`) — 4–6 карточек:
-   - Чистый Debian без сторонних репозиториев (`main`, `contrib`,
+1. **Header** (`<header>`) — logo + name, anchor navigation
+   (Features · Download · Documentation). Sticky on scroll.
+2. **Hero** (`<section id="top">`) — logo, `<h1>PuraD</h1>`,
+   the slogan "Live distribution based on pure Debian with KDE Plasma",
+   a short description in 1–2 sentences, buttons:
+   - **"Download ISO"** → Releases (stub);
+   - **"GitHub"** → repository (stub).
+3. **Key features** (`<section id="features">`) — 4–6 cards:
+   - Pure Debian without third-party repositories (`main`, `contrib`,
      `non-free-firmware`);
    - KDE Plasma 6;
-   - Установка на ext4/btrfs из коробки;
-   - Wi-Fi/GPU-прошивки уже в образе;
-   - Снимки btrfs (Timeshift + grub-btrfs);
-   - Воспроизводимая сборка в podman.
-4. **Как скачать/собрать** (`<section id="download">`) — блок с командами
-   `make iso TARGET=trixie` и `make run-install TARGET=trixie` (моно-код),
-   рядом ссылка на Releases.
-5. **Документация** (`<section id="docs">`) — ссылки на `README.md` и `docs/`.
-6. **Футер** (`<footer>`) — название, версия (`2026.11.09`, из `VERSION`), год.
+   - Installation to ext4/btrfs out of the box;
+   - Wi-Fi/GPU firmware already in the image;
+   - btrfs snapshots (Timeshift + grub-btrfs);
+   - Reproducible build in podman.
+4. **How to download/build** (`<section id="download">`) — a block with the commands
+   `make iso TARGET=trixie` and `make run-install TARGET=trixie` (mono code),
+   next to it a link to Releases.
+5. **Documentation** (`<section id="docs">`) — links to `README.md` and `docs/`.
+6. **Footer** (`<footer>`) — name, version (`2026.11.09`, from `VERSION`), year.
 
-## Оформление
+## Design
 
-- Тёмная тема в цветах логотипа: акцентный градиент `#1f7fb8 → #0b2e46`.
-- Mobile-first, адаптивная сетка карточек (CSS Grid, `auto-fit`/`minmax`).
-- Семантика (`header`/`main`/`section`/`footer`), контраст текста,
-  `alt` у изображений, видимый фокус для клавиатуры.
-- Уважение `prefers-reduced-motion`: анимации отключаются.
+- Dark theme in the logo's colors: accent gradient `#1f7fb8 → #0b2e46`.
+- Mobile-first, responsive card grid (CSS Grid, `auto-fit`/`minmax`).
+- Semantics (`header`/`main`/`section`/`footer`), text contrast,
+  `alt` on images, visible focus for the keyboard.
+- Respect for `prefers-reduced-motion`: animations are disabled.
 
-## Ссылки-заглушки
+## Stub links
 
-Ссылки на репозиторий и Releases оформляются как `href="#"` с
-комментариями `<!-- TODO: URL репозитория -->` / `<!-- TODO: URL Releases -->`
-рядом, чтобы заменить их в одном месте при публикации.
+Links to the repository and Releases are marked up as `href="#"` with
+comments `<!-- TODO: repository URL -->` / `<!-- TODO: Releases URL -->`
+next to them, so they can be replaced in one place when published.
 
-## Проверка
+## Verification
 
-Автотестов у статичного файла нет — проверка ручная:
+There are no automated tests for a static file — verification is manual:
 
-- открыть `site/index.html` локально без сети, убедиться, что нет внешних
-  запросов и всё отображается;
-- проверить в широком и узком окне (адаптив);
-- проверить, что все якоря навигации работают;
-- убедиться, что заглушки помечены комментариями.
+- open `site/index.html` locally without a network, make sure there are no external
+  requests and everything is displayed;
+- check in a wide and a narrow window (responsive);
+- check that all navigation anchors work;
+- make sure the stubs are marked with comments.
 
-## Изменение брендинга: монограмма P → PD
+## Branding change: monogram P → PD
 
-Выбранный вариант — **A**: «PD» плотно, подчёркивание сохранено (ближе всего к
-текущему стилю). Меняется во всех трёх SVG-исходниках; производные PNG для
-Calamares и иконки перегенерируются и коммитятся.
+The chosen variant is **A**: "PD" tight, the underline preserved (closest to
+the current style). It changes in all three SVG sources; the derived PNGs for
+Calamares and the icons are regenerated and committed.
 
-**`assets/branding/purad-logo.svg`** (256×256): текст `PD`, `font-size=128`,
-`letter-spacing=-4`, базовая линия `y=178`, акцентная полоса остаётся
+**`assets/branding/purad-logo.svg`** (256×256): the text `PD`, `font-size=128`,
+`letter-spacing=-4`, baseline `y=178`, the accent bar stays
 (`x=56 y=200 w=144 h=10`).
 
-**`assets/branding/purad-welcome.svg`**: монограмма в квадратике 96×96
-(`x=180 y=44`) — текст `PD`, `font-size=52`, базовая линия `y=111`
-(ширина надписи «PD» ≈ 76 px, чтобы влезало с полями). Подпись `PuraD`
-ниже не меняется.
+**`assets/branding/purad-welcome.svg`**: the monogram in a 96×96 square
+(`x=180 y=44`) — the text `PD`, `font-size=52`, baseline `y=111`
+(the width of the "PD" inscription ≈ 76 px, so it fits with margins). The caption `PuraD`
+below does not change.
 
-**`assets/branding/purad-slide1.svg`**: то же для квадратика `x=352 y=96` —
-`font-size=52`, базовая линия `y=163`.
+**`assets/branding/purad-slide1.svg`**: the same for the square `x=352 y=96` —
+`font-size=52`, baseline `y=163`.
 
-**Перегенерация производных:** `scripts/gen-branding.sh` (использует
-`rsvg-convert` или ImageMagick) обновляет
+**Regeneration of the derived files:** `scripts/gen-branding.sh` (uses
+`rsvg-convert` or ImageMagick) updates
 `config/includes.chroot/etc/calamares/branding/purad/{purad-logo,welcome,slide1}.png`
-и копию `config/includes.chroot/usr/share/pixmaps/purad-logo.png`. Изменённые
-SVG и PNG коммитятся вместе.
+and the copy `config/includes.chroot/usr/share/pixmaps/purad-logo.png`. The changed
+SVG and PNG are committed together.
 
-**Проверка брендинга:** в SVG не осталось монограммы `P` (одиночной); PNG
-перегенерированы и визуально «PD»; страница лендинга показывает новый логотип
-через относительный путь.
+**Branding verification:** no single `P` monogram remains in the SVG; the PNGs
+are regenerated and visually show "PD"; the landing page shows the new logo
+via the relative path.
 
-> Логотип `P` при желании легко откатить: правка только в этих трёх SVG + повтор
+> The `P` logo can easily be rolled back if desired: an edit only in these three SVGs + rerunning
 > `scripts/gen-branding.sh`.
 
-## Обновление: публикация
+## Update: publication
 
-Репозиторий опубликован (`https://github.com/viorn/PuraD`), поэтому:
+The repository is published (`https://github.com/viorn/PuraD`), therefore:
 
-- ссылки-заглушки заменены на реальные: репозиторий, `…/releases`, `…/blob/main/README.md`,
+- the stub links are replaced with real ones: repository, `…/releases`, `…/blob/main/README.md`,
   `…/tree/main/docs`;
-- лендинг публикуется через GitHub Actions + Pages (`.github/workflows/pages.yml`,
-  publish-каталог `site/`) по адресу `https://viorn.github.io/PuraD/`;
-- так как Pages раздаёт только содержимое `site/`, копия логотипа положена в
-  `site/purad-logo.svg`, и страница ссылается на неё относительным путём
-  (`purad-logo.svg`) вместо `../assets/…`; исходник брендинга остаётся
+- the landing page is published via GitHub Actions + Pages (`.github/workflows/pages.yml`,
+  publish directory `site/`) at `https://viorn.github.io/PuraD/`;
+- since Pages serves only the contents of `site/`, a copy of the logo is placed in
+  `site/purad-logo.svg`, and the page references it by a relative path
+  (`purad-logo.svg`) instead of `../assets/…`; the branding source remains
   `assets/branding/purad-logo.svg`;
-- добавлены `<meta name="description">` и теги Open Graph / Twitter для превью
-  при шеринге; og-картинка — `site/og-image.png` (источник
-  `assets/branding/purad-og.svg`, рендерится `scripts/gen-branding.sh`);
-- образ ISO (2,3 ГБ) не помещается в GitHub Releases (лимит 2 ГиБ на файл),
-  поэтому раздаётся через BitTorrent: к релизу приложены `.torrent` и `.sha256`,
-  на странице — кнопка «Скачать торрент» и magnet-ссылка; `.torrent` собирается
+- added `<meta name="description">` and Open Graph / Twitter tags for the preview
+  when sharing; the og image is `site/og-image.png` (source
+  `assets/branding/purad-og.svg`, rendered by `scripts/gen-branding.sh`);
+- the ISO image (2.3 GB) does not fit in GitHub Releases (the limit is 2 GiB per file),
+  so it is distributed via BitTorrent: `.torrent` and `.sha256` are attached to the release,
+  and the page has a "Download torrent" button and a magnet link; the `.torrent` is built by
   `scripts/gen-torrent.py`;
-- дополнительно образ выложен на внешний HTTP-хостинг (FolderHost): постоянная
-  прямая ссылка (`/s/<id>`, с докачкой) стала основной («Скачать ISO»), а торрент —
-  альтернативой; та же ссылка прописана как web-seed (`url-list`) в `.torrent`,
-  поэтому пиры подтягивают образ по HTTP; info-hash при добавлении `url-list` не меняется;
-- сайт и README переведены на два языка: `README.md` — английский (основной), `README.ru.md` —
-  русский, с переключателем в начале; страница `site/index.html` — английская (`lang="en"`),
-  `site/ru/index.html` — русская (`lang="ru"`), в шапке переключатель, у страниц свои
-  `canonical` и `hreflang`-альтернативы.
+- additionally the image is uploaded to an external HTTP hosting (FolderHost): a permanent
+  direct link (`/s/<id>`, with resumption) became the main one ("Download ISO"), and the torrent —
+  an alternative; the same link is specified as a web seed (`url-list`) in the `.torrent`,
+  so peers pull the image over HTTP; the info hash does not change when `url-list` is added;
+- the site and README are translated into two languages: `README.md` — English (main), `README.ru.md` —
+  Russian, with a switcher at the beginning; the page `site/index.html` is English (`lang="en"`),
+  `site/ru/index.html` is Russian (`lang="ru"`), the header has a switcher, the pages have their own
+  `canonical` and `hreflang` alternatives.
 

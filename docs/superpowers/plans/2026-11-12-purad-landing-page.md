@@ -1,48 +1,48 @@
-# PuraD — лендинг-визитка и монограмма «PD»: план реализации
+# PuraD — landing page and "PD" monogram: implementation plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Опубликовать статичную страницу-визитку PuraD в `site/index.html` и обновить монограмму брендинга с «P» на «PD» во всех исходниках и производных PNG.
+**Goal:** Publish a static PuraD landing page in `site/index.html` and update the branding monogram from "P" to "PD" in all sources and derived PNGs.
 
-**Architecture:** Страница — один HTML-файл со встроенным CSS, без зависимостей и внешних запросов, с относительной ссылкой на существующий SVG-логотип. Брендинг — правка трёх SVG-исходников в `assets/branding/` и перегенерация производных PNG скриптом `scripts/gen-branding.sh`.
+**Architecture:** The page is one HTML file with embedded CSS, no dependencies or external requests, with a relative link to the existing SVG logo. Branding is an edit of three SVG sources in `assets/branding/` and regeneration of the derived PNGs by the script `scripts/gen-branding.sh`.
 
-**Tech Stack:** HTML5, CSS (inline `<style>`), SVG, шрифт DejaVu Sans, bash + `rsvg-convert`/ImageMagick.
+**Tech Stack:** HTML5, CSS (inline `<style>`), SVG, the DejaVu Sans font, bash + `rsvg-convert`/ImageMagick.
 
 **Spec:** `docs/superpowers/specs/2026-11-12-purad-landing-page-design.md`
 
 ## Global Constraints
 
-- Язык страницы — русский, `<html lang="ru">`.
-- Никаких внешних ресурсов: ни CDN, ни внешних шрифтов — только системные
-  (`system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`). Страница обязана
-  полностью работать офлайн.
-- Весь CSS — внутри `<style>`; JavaScript не используется.
-- Логотип — относительный путь `../assets/branding/purad-logo.svg`; он же
-  подключается как favicon.
-- Цвета: акцентный градиент `#1f7fb8 → #0b2e46`, акцентная полоска `#8fd0f0`.
-- Ссылки-заглушки: `href="#"` и рядом комментарий `<!-- TODO: URL репозитория -->`
-  или `<!-- TODO: URL Releases -->`.
-- Версия в футере: `2026.11.09` (из файла `VERSION`).
-- Монограмма — вариант A: «PD», `font-size=128`, `letter-spacing=-4`, базовая
-  линия `y=178` (логотип 256×256); в плитках 96×96 — `font-size=52`,
-  базовые линии `y=111` (welcome) и `y=163` (slide1).
+- The page language is Russian, `<html lang="ru">`.
+- No external resources: no CDNs, no external fonts — only system
+  (`system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`). The page must
+  work fully offline.
+- All CSS — inside `<style>`; JavaScript is not used.
+- Logo — the relative path `../assets/branding/purad-logo.svg`; it is also
+  included as the favicon.
+- Colors: accent gradient `#1f7fb8 → #0b2e46`, accent bar `#8fd0f0`.
+- Stub links: `href="#"` and next to it the comment `<!-- TODO: repository URL -->`
+  or `<!-- TODO: Releases URL -->`.
+- Version in the footer: `2026.11.09` (from the `VERSION` file).
+- Monogram — variant A: "PD", `font-size=128`, `letter-spacing=-4`, baseline
+  `y=178` (logo 256×256); in the 96×96 tiles — `font-size=52`,
+  baselines `y=111` (welcome) and `y=163` (slide1).
 
 ## Review Focus
 
-- **Относительный путь к логотипу** — при неверном пути картинка не откроется при
-  `file://` из папки `site/`. Ждём: логотип виден.
-- **Внешний ресурс** (CDN, `@import`, веб-шрифт) — ломает заявленную офлайн-работу.
-  Ждём: ни одного внешнего запроса.
-- **Заглушки без пометки** — ссылка `href="#"` без комментария `TODO` теряется при
-  публикации. Ждём: у каждой заглушки есть `TODO`.
-- **«PD» шире плитки** — в квадратике 96×96 буквы выходят за края. Ждём: надпись
-  вписана с полями.
-- **Горизонтальная прокрутка на узком экране** — появляется при фиксированных
-  ширинах. Ждём: на ширине 360 px прокрутки по горизонтали нет.
+- **Relative path to the logo** — with a wrong path the image will not open when
+  using `file://` from the `site/` folder. Expect: the logo is visible.
+- **External resource** (CDN, `@import`, web font) — breaks the declared offline operation.
+  Expect: not a single external request.
+- **Stubs without a marker** — a link `href="#"` without a `TODO` comment is lost when
+  publishing. Expect: every stub has a `TODO`.
+- **"PD" wider than the tile** — in a 96×96 square the letters go beyond the edges. Expect: the inscription
+  is fitted with margins.
+- **Horizontal scrolling on a narrow screen** — appears with fixed
+  widths. Expect: at a width of 360 px there is no horizontal scrolling.
 
 ---
 
-### Task 1: Брендинг — монограмма P → PD
+### Task 1: Branding — monogram P → PD
 
 **Files:**
 - Modify: `assets/branding/purad-logo.svg`
@@ -54,14 +54,14 @@
 - Regenerate: `config/includes.chroot/usr/share/pixmaps/purad-logo.png`
 
 **Interfaces:**
-- Consumes: ничего (изолированная правка ассетов).
-- Produces: `assets/branding/purad-logo.svg` с монограммой «PD» — используется
-  Task 2 как логотип и favicon страницы.
+- Consumes: nothing (an isolated edit of assets).
+- Produces: `assets/branding/purad-logo.svg` with the "PD" monogram — used
+  by Task 2 as the page's logo and favicon.
 
-- [ ] **Step 1: Заменить монограмму в `assets/branding/purad-logo.svg`**
+- [ ] **Step 1: Replace the monogram in `assets/branding/purad-logo.svg`**
 
-Текст `P` (строки 9–11) заменить на `PD` с уменьшенным кеглем и плотным
-трекингом; полоску сдвинуть ниже (`y=200`):
+Replace the text `P` (lines 9–11) with `PD` with a reduced size and tight
+tracking; move the bar lower (`y=200`):
 
 ```xml
   <text x="128" y="178" text-anchor="middle"
@@ -70,135 +70,135 @@
   <rect x="56" y="200" width="144" height="10" rx="5" fill="#8fd0f0" opacity="0.85"/>
 ```
 
-- [ ] **Step 2: Заменить монограмму в `assets/branding/purad-welcome.svg`**
+- [ ] **Step 2: Replace the monogram in `assets/branding/purad-welcome.svg`**
 
-В плитке 96×96 (строка 11–12) заменить `P` на `PD`, кегль 52, базовая линия 111:
+In the 96×96 tile (lines 11–12) replace `P` with `PD`, size 52, baseline 111:
 
 ```xml
   <text x="228" y="111" text-anchor="middle" font-family="DejaVu Sans"
         font-weight="bold" font-size="52" fill="#ffffff">PD</text>
 ```
 
-- [ ] **Step 3: Заменить монограмму в `assets/branding/purad-slide1.svg`**
+- [ ] **Step 3: Replace the monogram in `assets/branding/purad-slide1.svg`**
 
-В плитке 96×96 (строки 11–12) заменить `P` на `PD`, кегль 52, базовая линия 163:
+In the 96×96 tile (lines 11–12) replace `P` with `PD`, size 52, baseline 163:
 
 ```xml
   <text x="400" y="163" text-anchor="middle" font-family="DejaVu Sans"
         font-weight="bold" font-size="52" fill="#ffffff">PD</text>
 ```
 
-- [ ] **Step 4: Проверить, что одиночной монограммы «P» не осталось**
+- [ ] **Step 4: Check that no single "P" monogram remains**
 
 Run: `grep -n '>P<' assets/branding/*.svg`
-Expected: пустой вывод (ни одной одиночной `P` как содержимого тега).
+Expected: empty output (not a single `P` as tag content).
 
-- [ ] **Step 5: Перегенерировать производные PNG**
+- [ ] **Step 5: Regenerate the derived PNGs**
 
 Run: `bash scripts/gen-branding.sh`
-Expected: скрипт печатает список пяти PNG (три в `.../branding/purad/` и копию
-в `.../pixmaps/`) без ошибок.
+Expected: the script prints a list of five PNGs (three in `.../branding/purad/` and a copy
+in `.../pixmaps/`) without errors.
 
-- [ ] **Step 6: Проверить, что PNG обновились**
+- [ ] **Step 6: Check that the PNGs were updated**
 
 Run: `git status --short config/includes.chroot`
-Expected: изменены ровно 4 файла PNG (`branding/purad/purad-logo.png`,
+Expected: exactly 4 PNG files changed (`branding/purad/purad-logo.png`,
 `welcome.png`, `slide1.png`, `pixmaps/purad-logo.png`).
 
-- [ ] **Step 7: Визуально проверить вписывание «PD»**
+- [ ] **Step 7: Visually check the fit of "PD"**
 
 Run: `rsvg-convert -o /tmp/pd-logo.png assets/branding/purad-logo.svg && rsvg-convert -o /tmp/pd-welcome.png assets/branding/purad-welcome.svg`
-Открыть оба PNG и убедиться, что «PD» целиком внутри квадрата, с полями по
-бокам, полоска не пересекает буквы. (Ручная проверка — автотестов у ассетов нет.)
+Open both PNGs and make sure that "PD" is entirely inside the square, with margins on
+the sides, and the bar does not cross the letters. (Manual check — there are no automated tests for the assets.)
 
 - [ ] **Step 8: Commit**
 
 ```bash
 git add assets/branding/purad-logo.svg assets/branding/purad-welcome.svg \
         assets/branding/purad-slide1.svg config/includes.chroot
-git commit -m "branding: монограмма P → PD во всех исходниках и PNG"
+git commit -m "branding: monogram P → PD in all sources and PNG"
 ```
 
 ---
 
-### Task 2: Страница `site/index.html`
+### Task 2: The `site/index.html` page
 
 **Files:**
 - Create: `site/index.html`
 
 **Interfaces:**
-- Consumes: логотип `assets/branding/purad-logo.svg` (Task 1) по относительному
-  пути `../assets/branding/purad-logo.svg`.
-- Produces: готовую страницу `site/index.html` — самодостаточную и офлайновую.
+- Consumes: the logo `assets/branding/purad-logo.svg` (Task 1) via the relative
+  path `../assets/branding/purad-logo.svg`.
+- Produces: the ready page `site/index.html` — self-contained and offline.
 
-- [ ] **Step 1: Создать `site/index.html` — каркас, стили и секции**
+- [ ] **Step 1: Create `site/index.html` — skeleton, styles and sections**
 
-Собрать один файл: `<!DOCTYPE html>`, `<html lang="ru">`, `<head>` с
+Assemble one file: `<!DOCTYPE html>`, `<html lang="ru">`, `<head>` with
 `<meta charset="utf-8">`, `<meta name="viewport" content="width=device-width, initial-scale=1">`,
 `<title>PuraD</title>`, `<link rel="icon" type="image/svg+xml" href="../assets/branding/purad-logo.svg">`
-и `<style>` со всеми стилями. `<body>` содержит `header`, `main` (секции), `footer`.
+and `<style>` with all the styles. `<body>` contains `header`, `main` (sections), `footer`.
 
-Тексты и значения (пиннинг из спеки):
+Texts and values (pinning from the spec):
 
-- **Шапка** — `<header>`: логотип `<img src="../assets/branding/purad-logo.svg" alt="PuraD" width="40" height="40">`,
-  название `PuraD`, навигация-якоря: `#features` (Особенности), `#download`
-  (Скачать), `#docs` (Документация). Позиция `sticky`.
-- **Герой** — `<section id="top">`: `<h1>PuraD</h1>`, слоган
-  «Live-дистрибутив на базе чистого Debian с KDE Plasma», абзац-описание 1–2
-  предложения о лив-CD с KDE Plasma и установке на ext4/btrfs без сторонних
-  репозиториев. Кнопки:
-  - «Скачать ISO» → `<a href="#" class="btn btn-primary">` + `<!-- TODO: URL Releases -->`;
-  - «GitHub» → `<a href="#" class="btn">` + `<!-- TODO: URL репозитория -->`.
-- **Особенности** — `<section id="features">` с заголовком «Ключевые особенности»
-  и сеткой карточек (CSS Grid `repeat(auto-fit, minmax(240px, 1fr))`) из шести
-  пунктов: «Чистый Debian» (только `main`, `contrib`, `non-free-firmware`),
-  «KDE Plasma 6», «ext4 и btrfs из коробки», «Wi-Fi и GPU-прошивки в образе»,
-  «Снимки btrfs» (Timeshift + grub-btrfs), «Воспроизводимая сборка» (podman).
-- **Как скачать/собрать** — `<section id="download">`: абзац со ссылкой на
-  Releases (заглушка `#` + `<!-- TODO: URL Releases -->`) и блок `<pre><code>`
-  с командами:
+- **Header** — `<header>`: the logo `<img src="../assets/branding/purad-logo.svg" alt="PuraD" width="40" height="40">`,
+  the name `PuraD`, anchor navigation: `#features` (Features), `#download`
+  (Download), `#docs` (Documentation). Position `sticky`.
+- **Hero** — `<section id="top">`: `<h1>PuraD</h1>`, the slogan
+  "Live distribution based on pure Debian with KDE Plasma", a description paragraph of 1–2
+  sentences about a live CD with KDE Plasma and installation to ext4/btrfs without third-party
+  repositories. Buttons:
+  - "Download ISO" → `<a href="#" class="btn btn-primary">` + `<!-- TODO: Releases URL -->`;
+  - "GitHub" → `<a href="#" class="btn">` + `<!-- TODO: repository URL -->`.
+- **Features** — `<section id="features">` with the heading "Key features"
+  and a grid of cards (CSS Grid `repeat(auto-fit, minmax(240px, 1fr))`) of six
+  items: "Pure Debian" (only `main`, `contrib`, `non-free-firmware`),
+  "KDE Plasma 6", "ext4 and btrfs out of the box", "Wi-Fi and GPU firmware in the image",
+  "btrfs snapshots" (Timeshift + grub-btrfs), "Reproducible build" (podman).
+- **How to download/build** — `<section id="download">`: a paragraph with a link to
+  Releases (stub `#` + `<!-- TODO: Releases URL -->`) and a `<pre><code>`
+  block with the commands:
 
 ```text
 make iso TARGET=trixie
 make run-install TARGET=trixie
 ```
 
-- **Документация** — `<section id="docs">`: ссылки на `README.md` и `docs/`
-  (заглушки `#` + `<!-- TODO: URL репозитория -->`).
-- **Футер** — `<footer>`: `PuraD`, версия `2026.11.09`, текущий год.
+- **Documentation** — `<section id="docs">`: links to `README.md` and `docs/`
+  (stubs `#` + `<!-- TODO: repository URL -->`).
+- **Footer** — `<footer>`: `PuraD`, version `2026.11.09`, the current year.
 
-Оформление: тёмная тема, акцентный градиент `#1f7fb8 → #0b2e46` (например, в
-фоне героя), акцентная полоска `#8fd0f0`; mobile-first; видимый фокус
-(`:focus-visible`); блок `@media (prefers-reduced-motion: reduce)` отключает
-анимации. Никаких фиксированных ширин, вызывающих горизонтальный скролл.
+Design: dark theme, accent gradient `#1f7fb8 → #0b2e46` (for example, in
+the hero background), accent bar `#8fd0f0`; mobile-first; visible focus
+(`:focus-visible`); the block `@media (prefers-reduced-motion: reduce)` disables
+animations. No fixed widths that cause horizontal scrolling.
 
-- [ ] **Step 2: Проверить, что внешних ресурсов нет**
+- [ ] **Step 2: Check that there are no external resources**
 
 Run: `grep -nE 'https?://|@import|fonts\.googleapis|cdn\.' site/index.html`
-Expected: пустой вывод (все ссылки — якоря, заглушки, локальные пути).
+Expected: empty output (all links are anchors, stubs, local paths).
 
-- [ ] **Step 3: Проверить, что у каждой заглушки есть пометка TODO**
+- [ ] **Step 3: Check that every stub has a TODO marker**
 
 Run: `grep -c 'href="#"' site/index.html && grep -c 'TODO: URL' site/index.html`
-Expected: оба числа равны — количество `href="#"` совпадает с количеством
-пометок `TODO: URL` (5 и 5 ожидаемо: 2 в герое, 1 в блоке скачивания, 2 в
-документации).
+Expected: both numbers are equal — the number of `href="#"` matches the number of
+`TODO: URL` markers (5 and 5 expected: 2 in the hero, 1 in the download block, 2 in
+the documentation).
 
-- [ ] **Step 4: Проверить, что путь к логотипу разрешается**
+- [ ] **Step 4: Check that the path to the logo resolves**
 
 Run: `cd site && test -f ../assets/branding/purad-logo.svg && echo OK`
 Expected: `OK`.
 
-- [ ] **Step 5: Открыть страницу и проверить вручную**
+- [ ] **Step 5: Open the page and check manually**
 
 Run: `xdg-open site/index.html`
-Проверить: логотип отображается; все якоря навигации прокручивают к секциям;
-на ширине ~360 px (или в режиме мобильного) нет горизонтальной прокрутки;
-`prefers-reduced-motion` не ломает вид.
+Check: the logo is displayed; all navigation anchors scroll to the sections;
+at a width of ~360 px (or in mobile mode) there is no horizontal scrolling;
+`prefers-reduced-motion` does not break the appearance.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add site/index.html
-git commit -m "site: страница-визитка PuraD"
+git commit -m "site: PuraD landing page"
 ```

@@ -69,8 +69,7 @@ deked/
 ├── builds/                   # artifacts (git-ignored)
 └── docs/
     ├── PLAN.md
-    ├── build.md
-    └── checklist-release.md
+    └── superpowers/          # specs and plans for the superpowers workflow
 ```
 
 ### Key decisions

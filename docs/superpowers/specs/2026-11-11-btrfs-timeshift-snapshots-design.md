@@ -1,253 +1,257 @@
-# Снимки btrfs: Timeshift + grub-btrfs и загрузка в снимки
+# btrfs snapshots: Timeshift + grub-btrfs and booting into snapshots
 
-- Дата: 2026-11-11
-- Статус: реализовано (2026-11-11)
-- Связанные документы: `docs/PLAN.md`, `README.md`,
+- Date: 2026-11-11
+- Status: implemented (2026-11-11)
+- Related documents: `docs/PLAN.md`, `README.md`,
   `docs/superpowers/plans/2026-11-11-btrfs-timeshift-snapshots.md`
 
-## 1. Цель
+## 1. Goal
 
-На установке PuraD с корнем на btrfs:
+On a PuraD installation with a btrfs root:
 
-1. поставить Timeshift в целевую систему;
-2. сразу после первого запуска установленной системы создать начальный снимок;
-3. поставить grub-btrfs, чтобы снимки были доступны в меню GRUB;
-4. **обеспечить реальную загрузку в read-only снимок**: система должна
-   стартовать writable, изменения — жить в RAM и пропадать при перезагрузке.
+1. install Timeshift into the target system;
+2. create an initial snapshot immediately after the first boot of the installed system;
+3. install grub-btrfs so that snapshots are available in the GRUB menu;
+4. **ensure actual booting into a read-only snapshot**: the system must
+   start writable, with changes living in RAM and disappearing on reboot.
 
-На ext4 ни Timeshift, ни grub-btrfs, ни их юниты в установленной системе не
-появляются.
+On ext4, neither Timeshift, nor grub-btrfs, nor their units appear in the
+installed system.
 
-## 2. Принципы и границы
+## 2. Principles and boundaries
 
-- **Только btrfs.** Вся функциональность включается модулем Calamares после
-  определения файловой системы целевого корня. На ext4 модуль ничего не делает.
-- **Чистый Debian с одной явной оговоркой.** `.deb` `timeshift` скачивается
-  из `main` Debian при сборке ISO и кладётся в локальный репозиторий на
-  носителе. `grub-btrfs` в Debian отсутствует, поэтому upstream-исходник
-  фиксированной версии вендорится в репозиторий и собирается в локальный `.deb`
-  при сборке ISO. Сторонних APT-репозиториев и GPG-ключей нет; версия и
-  sha256 тарбола зафиксированы. Оговорка документируется в `docs/PLAN.md`.
-- **Загрузка в снимок — через overlayfs в initramfs, а не через `@var`.**
-  Это сохраняет неизменность снимка и делает корень writable на время сессии.
-  Отдельный `@var` не нужен и в этой задаче не добавляется.
-- **Начальный снимок — при первом запуске установленной системы, а не в
-  установщике.** Timeshift отказывается создавать снимки в live-режиме:
-  `App.live_system()` проверяет `/proc/cmdline` на `boot=live` / `boot=casper`
-  и возвращает ошибку «Snapshots cannot be created in Live CD mode».
-- **Опциональная функция не ломает установку.** Если пакеты снимков не удалось
-  поставить, модуль пишет предупреждение в лог Calamares и продолжает
-  установку; проверка это ловит отдельно.
-- **Никакого расписания снимков по умолчанию.** Пользователь настраивает его
-  сам через GUI Timeshift.
+- **btrfs only.** All functionality is enabled by the Calamares module after
+  determining the file system of the target root. On ext4 the module does nothing.
+- **Clean Debian with one explicit caveat.** The `timeshift` `.deb` is downloaded
+  from Debian `main` during the ISO build and placed into a local repository on
+  the medium. `grub-btrfs` is absent from Debian, so the upstream source of a
+  pinned version is vendored into the repository and built into a local `.deb`
+  during the ISO build. There are no third-party APT repositories or GPG keys;
+  the version and the tarball's sha256 are pinned. The caveat is documented in
+  `docs/PLAN.md`.
+- **Booting into a snapshot is via overlayfs in initramfs, not via `@var`.**
+  This keeps the snapshot immutable and makes the root writable for the duration
+  of the session. A separate `@var` is not needed and is not added in this task.
+- **The initial snapshot is taken on the first boot of the installed system, not in the
+  installer.** Timeshift refuses to create snapshots in live mode:
+  `App.live_system()` checks `/proc/cmdline` for `boot=live` / `boot=casper`
+  and returns the error "Snapshots cannot be created in Live CD mode".
+- **The optional feature does not break the installation.** If the snapshot packages
+  could not be installed, the module writes a warning to the Calamares log and continues
+  the installation; the check catches this separately.
+- **No snapshot schedule by default.** The user configures it
+  themselves via the Timeshift GUI.
 
-## 3. Решения
+## 3. Decisions
 
-### 3.1. Вендоринг grub-btrfs и сборка `.deb`
+### 3.1. Vendoring grub-btrfs and building the `.deb`
 
-- В репозиторий добавляется `vendor/grub-btrfs/`:
-  - `grub-btrfs-v4.14.tar.gz` — upstream-тарбол с GitHub,
+- `vendor/grub-btrfs/` is added to the repository:
+  - `grub-btrfs-v4.14.tar.gz` — upstream tarball from GitHub,
     sha256 `4fe2f8a49b39e3e561fc51bbc5a0f81a7222c1e9ef8672e014e0ba3bedad20c6`;
-  - `initramfs-tools/` — два скрипта overlayfs из upstream-PR #250
-    (адаптированы под POSIX sh и usrmerge, атрибуция и GPL-3.0 в README);
-  - `README.md` — происхождение, версии/коммиты, sha256, лицензии, причина
-    вендоринга (в Debian пакета нет; PR не влит в upstream).
-- `.deb` собирается из тарбола и вендоренных скриптов при сборке ISO, а не
-  хранится в git. Пакет содержит:
+  - `initramfs-tools/` — two overlayfs scripts from upstream PR #250
+    (adapted for POSIX sh and usrmerge, attribution and GPL-3.0 in the README);
+  - `README.md` — provenance, versions/commits, sha256, licenses, the reason
+    for vendoring (there is no package in Debian; the PR is not merged upstream).
+- The `.deb` is built from the tarball and the vendored scripts during the ISO build,
+  rather than being stored in git. The package contains:
   - `/etc/grub.d/41_snapshots-btrfs` (755);
   - `/etc/default/grub-btrfs/config` (644);
   - `/usr/bin/grub-btrfsd` (744);
   - `/usr/lib/systemd/system/grub-btrfsd.service` (644);
-  - `/etc/initramfs-tools/hooks/grub-btrfs-overlay` (755) — добавляет модуль
-    `overlay` и копирует `findmnt`/`btrfs` в initramfs;
+  - `/etc/initramfs-tools/hooks/grub-btrfs-overlay` (755) — adds the `overlay`
+    module and copies `findmnt`/`btrfs` into the initramfs;
   - `/etc/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay` (755) —
-    при read-only btrfs-корне монтирует overlayfs;
-  - man-страницы `grub-btrfs(8)`, `grub-btrfsd(8)`;
-  - `README.md` и `LICENSE` в `/usr/share/doc/grub-btrfs/`.
+    mounts overlayfs when the btrfs root is read-only;
+  - man pages `grub-btrfs(8)`, `grub-btrfsd(8)`;
+  - `README.md` and `LICENSE` in `/usr/share/doc/grub-btrfs/`.
 - `DEBIAN/control`: `Package: grub-btrfs`, `Version: 4.14-purad1`,
   `Architecture: all`, `Depends: btrfs-progs, grub-common, bash (>= 4),
-  gawk | mawk, inotify-tools, initramfs-tools`. Maintainer-скриптов нет:
-  пакет не должен запускать `update-grub`/`update-initramfs` в live-chroot;
-  initramfs перегенерирует штатный модуль Calamares `initramfs`, который идёт
-  после `packages`.
-- Сборка — `dpkg-deb --build --root-owner-group` (в контейнере сборки
-  `dpkg-deb` уже есть; `fakeroot` не требуется).
-- Хук `config/hooks/normal/0500-purad-installer-repo.binary` расширяется
-  (он уже владеет локальным репозиторием на носителе):
-  - в список скачиваемых пакетов добавляются `timeshift`, `inotify-tools` и
-    `pkexec`;
-  - `pkexec` качается отдельно с `--reinstall`: шаг `packages` удаляет его
-    `autoremove`-ом, но в dpkg-статусе сборочного chroot он есть, поэтому
-    обычный `apt-get -d install pkexec` счёл бы его установленным и не
-    скачал. Без `pkexec` в репозитории атомарный
-    `apt-get install timeshift grub-btrfs pkexec` падает целиком, и Timeshift
-    не ставится;
-  - из вендоренных исходников собирается `grub-btrfs_4.14-purad1_all.deb`;
-  - все `.deb` копируются в `pool/main`, индекс `Packages`/`Release`
-    генерируется как сейчас;
-  - кэш-гейт «если в `cache/purad-installer-repo/archives` есть хоть один
-    `.deb` — ничего не качать» заменяется на нормальную логику: онлайн
-    `apt-get -d` запускается всегда, а уже скачанные `.deb` apt не
-    перекачивает; офлайн (индекс не скачался) хук использует кэш, но только
-    если в нём есть все верхнеуровневые пакеты (`grub-pc`, `grub-efi`,
-    `timeshift`, `inotify-tools`, `pkexec`). Иначе сборка падает с внятной
-    ошибкой.
-- `scripts/build.sh` копирует `vendor/` в рабочее дерево и включает его в
-  отпечаток сборки, иначе изменение тарбола не приведёт к пересборке.
+  gawk | mawk, inotify-tools, initramfs-tools`. There are no maintainer
+  scripts: the package must not run `update-grub`/`update-initramfs` in the
+  live chroot; the initramfs is regenerated by the stock Calamares module
+  `initramfs`, which runs after `packages`.
+- The build uses `dpkg-deb --build --root-owner-group` (in the build
+  container `dpkg-deb` is already present; `fakeroot` is not required).
+- The hook `config/hooks/normal/0500-purad-installer-repo.binary` is extended
+  (it already owns the local repository on the medium):
+  - `timeshift`, `inotify-tools` and `pkexec` are added to the list of
+    packages to download;
+  - `pkexec` is downloaded separately with `--reinstall`: the `packages` step
+    removes it via `autoremove`, but it is present in the dpkg status of the
+    build chroot, so a regular `apt-get -d install pkexec` would consider it
+    installed and would not download it. Without `pkexec` in the repository, the
+    atomic `apt-get install timeshift grub-btrfs pkexec` fails entirely, and
+    Timeshift is not installed;
+  - `grub-btrfs_4.14-purad1_all.deb` is built from the vendored sources;
+  - all `.deb` files are copied into `pool/main`, the `Packages`/`Release`
+    index is generated as it is now;
+  - the cache gate "if there is at least one `.deb` in
+    `cache/purad-installer-repo/archives` — download nothing" is replaced with
+    proper logic: online `apt-get -d` is always run, and apt does not
+    re-download already downloaded `.deb` files; offline (the index was not
+    downloaded), the hook uses the cache, but only if it contains all the
+    top-level packages (`grub-pc`, `grub-efi`, `timeshift`, `inotify-tools`,
+    `pkexec`). Otherwise the build fails with a clear error.
+- `scripts/build.sh` copies `vendor/` into the working tree and includes it in
+  the build fingerprint, otherwise changing the tarball would not trigger a rebuild.
 
-### 3.2. Модуль Calamares `purad-snapshots`
+### 3.2. Calamares module `purad-snapshots`
 
-Новый python-модуль по образцу `purad-efi-fallback`:
+A new python module modeled on `purad-efi-fallback`:
 
-- каталог:
+- directory:
   `config/includes.chroot/usr/lib/x86_64-linux-gnu/calamares/modules/purad-snapshots/`
   (`main.py`, `module.desc`);
-- в `settings.conf` добавляется в фазу `exec` сразу после `packages`, до
-  `initramfscfg`/`initramfs` и до `sources-media-unmount`/`sources-final`.
-  Это важно: initramfs-хук из пакета должен попасть в initramfs, который
-  перегенерирует следующий штатный шаг `initramfs`;
-- определяет ФС целевого корня: `rootPartition` + `partitions` из global
-  storage, фолбэк — наличие `subvol=/@` в `<root>/etc/fstab`;
-- **ext4:** пишет debug-сообщение и выходит, ничего не меняя;
+- in `settings.conf` it is added to the `exec` phase immediately after
+  `packages`, before `initramfscfg`/`initramfs` and before
+  `sources-media-unmount`/`sources-final`. This is important: the initramfs hook
+  from the package must end up in the initramfs that the next stock step
+  `initramfs` regenerates;
+- it determines the file system of the target root: `rootPartition` + `partitions`
+  from global storage, with a fallback of the presence of `subvol=/@` in
+  `<root>/etc/fstab`;
+- **ext4:** writes a debug message and exits without changing anything;
 - **btrfs:**
-  1. `apt-get update` и `apt-get install -y --no-install-recommends timeshift
-     grub-btrfs pkexec` в целевом chroot (`DEBIAN_FRONTEND=noninteractive`).
-     `pkexec` нужен GUI-обёртке Timeshift (`timeshift-launcher`). В образе он
-     есть как зависимость `calamares-settings-debian`, но этот пакет шаг
-     `packages` удаляет, а `autoremove` добивает `pkexec`; поэтому он лежит в
-     репозитории на носителе и ставится явно;
-  2. пишет `/etc/timeshift/timeshift.json` на основе поставленного пакетом
+  1. `apt-get update` and `apt-get install -y --no-install-recommends timeshift
+     grub-btrfs pkexec` in the target chroot (`DEBIAN_FRONTEND=noninteractive`).
+     `pkexec` is needed by the Timeshift GUI wrapper (`timeshift-launcher`).
+     In the image it is present as a dependency of `calamares-settings-debian`,
+     but the `packages` step removes that package, and `autoremove` finishes off
+     `pkexec`; therefore it lives in the repository on the medium and is
+     installed explicitly;
+  2. writes `/etc/timeshift/timeshift.json` based on the package-installed
      `/etc/timeshift/default.json`: `do_first_run=false`, `btrfs_mode=true`,
-     `include_btrfs_home=false`, все `schedule_*=false`,
-     `backup_device_uuid=""` (в btrfs-режиме Timeshift сам берёт системный
-     диск с сабтомом `@`);
-  3. создаёт маркер `/var/lib/purad/btrfs`;
-  4. включает `purad-first-snapshot.service` и `grub-btrfsd.service`
-     (`systemctl enable` в целевом chroot);
-- при ошибке установки пакетов — `libcalamares.utils.warning(...)` и
-  продолжение установки.
+     `include_btrfs_home=false`, all `schedule_*=false`,
+     `backup_device_uuid=""` (in btrfs mode Timeshift itself takes the system
+     disk with the `@` subvolume);
+  3. creates the marker `/var/lib/purad/btrfs`;
+  4. enables `purad-first-snapshot.service` and `grub-btrfsd.service`
+     (`systemctl enable` in the target chroot);
+- on package installation error — `libcalamares.utils.warning(...)` and
+  continuation of the installation.
 
-### 3.3. Первый запуск
+### 3.3. First boot
 
 - `config/includes.chroot/usr/lib/systemd/system/purad-first-snapshot.service`:
   - `Type=oneshot`, `After=local-fs.target`, `Before=grub-btrfsd.service`;
-  - условия: существует `/var/lib/purad/btrfs`, отсутствует
-    `/var/lib/purad/first-snapshot.done`;
+  - conditions: `/var/lib/purad/btrfs` exists,
+    `/var/lib/purad/first-snapshot.done` is absent;
   - `ExecStart=/usr/lib/purad/first-snapshot`, `RemainAfterExit=yes`;
-  - `WantedBy=multi-user.target` (включается только модулем на btrfs).
+  - `WantedBy=multi-user.target` (enabled only by the module on btrfs).
 - `config/includes.chroot/usr/lib/purad/first-snapshot`:
-  1. проверяет маркер btrfs и наличие `timeshift`;
-  2. не создаёт снимок, если `findmnt -no FSTYPE /` не `btrfs` (загрузка в
-     снимок даёт `overlay`) или `btrfs property get / ro` не `ro=false` — это
-     защита от вложенного снимка при загрузке в начальный снимок, где
-     `done`-маркера нет;
-  3. если снимка с комментарием `PuraD: initial snapshot` ещё нет —
+  1. checks the btrfs marker and the presence of `timeshift`;
+  2. does not create a snapshot if `findmnt -no FSTYPE /` is not `btrfs` (booting
+     into a snapshot gives `overlay`) or `btrfs property get / ro` is not
+     `ro=false` — this is protection against a nested snapshot when booting into
+     the initial snapshot, where there is no `done` marker;
+  3. if a snapshot with the comment `PuraD: initial snapshot` does not yet exist —
      `timeshift --create --btrfs --scripted --yes
-     --comments "PuraD: initial snapshot"` (без `--tags`: Timeshift 24.06.6
-     отвергает `O`, хотя печатает его в списке допустимых значений; тег по
-     умолчанию — `ondemand`);
-  4. `update-grub`; при ошибке `done` не ставится, юнит повторит только
-     `update-grub` при следующей загрузке (снимок не дублируется);
+     --comments "PuraD: initial snapshot"` (without `--tags`: Timeshift 24.06.6
+     rejects `O`, although it prints it in the list of allowed values; the default
+     tag is `ondemand`);
+  4. `update-grub`; on error, `done` is not set, and the unit will repeat only
+     `update-grub` on the next boot (the snapshot is not duplicated);
   5. `touch /var/lib/purad/first-snapshot.done`;
   6. `systemctl disable purad-first-snapshot.service`.
-- Юнит и скрипт лежат в образе всегда, но на ext4 не включены и не срабатывают.
+- The unit and script are always present in the image, but on ext4 they are not enabled and do not run.
 
 ### 3.4. grub-btrfsd
 
-- В образе лежит drop-in
+- The image contains the drop-in
   `config/includes.chroot/etc/systemd/system/grub-btrfsd.service.d/10-purad-timeshift.conf`:
   ```
   [Service]
   ExecStart=
   ExecStart=/usr/bin/grub-btrfsd --syslog --timeshift-auto
   ```
-- `--timeshift-auto` нужен для Timeshift ≥ 22.06 (у нас 24.06.6), который
-  монтирует снимки в `/run/timeshift/<pid>/backup/timeshift-btrfs`.
-- Drop-in безвреден на ext4: юнита `grub-btrfsd.service` там нет.
+- `--timeshift-auto` is needed for Timeshift ≥ 22.06 (we have 24.06.6), which
+  mounts snapshots at `/run/timeshift/<pid>/backup/timeshift-btrfs`.
+- The drop-in is harmless on ext4: there is no `grub-btrfsd.service` unit there.
 
-### 3.5. Загрузка в read-only снимок (overlayfs в initramfs)
+### 3.5. Booting into a read-only snapshot (overlayfs in initramfs)
 
-- `/etc/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay` выполняется
-  после монтирования корня, до `run-init`. Если корень — btrfs и
-  `btrfs property get <root> ro` ≠ `ro=false` (то есть это read-only снимок),
-  скрипт:
-  1. переносит смонтированный корень в `lower_dir`;
-  2. монтирует tmpfs и создаёт `upper`/`work`;
-  3. монтирует overlayfs (`lowerdir=снимок`, `upperdir/workdir` в RAM) на
-     место корня.
-- Итог: система стартует как writable, все изменения — в RAM и теряются при
-  перезагрузке; сам снимок остаётся неизменным.
-- Нормальная загрузка не затрагивается: у `@` свойство `ro=false`.
-- В GRUB-пункт снимка добавляется
+- `/etc/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay` runs
+  after the root is mounted, before `run-init`. If the root is btrfs and
+  `btrfs property get <root> ro` ≠ `ro=false` (that is, it is a read-only snapshot),
+  the script:
+  1. moves the mounted root to `lower_dir`;
+  2. mounts tmpfs and creates `upper`/`work`;
+  3. mounts overlayfs (`lowerdir=snapshot`, `upperdir/workdir` in RAM) onto
+     the root location.
+- Result: the system starts as writable, all changes are in RAM and are lost on
+  reboot; the snapshot itself remains unchanged.
+- Normal boot is unaffected: `@` has the property `ro=false`.
+- To the GRUB snapshot entry is added
   `GRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS="ro systemd.mask=systemd-remount-fs.service"`.
-  `ro` не даёт монтировать снимок rw; `systemd-remount-fs` маскируется, потому
-  что overlayfs не принимает remount с опциями из `/etc/fstab`
-  (`EINVAL: no changes allowed in reconfigure`), а корень уже writable через
-  overlay. Маска действует только на снимках.
-- `@var` не нужен: writable становится весь корень, включая `/var`.
-- Хук попадает в initramfs, который перегенерирует Calamares-модуль
-  `initramfs` после установки пакета. Начальный снимок создаётся уже после
-  этого, поэтому содержит initramfs с хуком. Снимки, сделанные до установки
-  хука, overlay не получат — в нашей схеме таких нет.
-- Рассмотренные альтернативы: `systemd.volatile=state` (не делает корень
-  writable, issue grub-btrfs #331) и отдельный `@var` (ломает согласованность
-  `/`/`/var`, не нужен при overlayfs).
+  `ro` prevents mounting the snapshot rw; `systemd-remount-fs` is masked because
+  overlayfs does not accept a remount with options from `/etc/fstab`
+  (`EINVAL: no changes allowed in reconfigure`), and the root is already writable via
+  the overlay. The mask applies only to snapshots.
+- `@var` is not needed: the entire root, including `/var`, becomes writable.
+- The hook ends up in the initramfs that the Calamares module `initramfs`
+  regenerates after the package is installed. The initial snapshot is created after
+  this, so it contains an initramfs with the hook. Snapshots made before the hook
+  was installed will not get the overlay — in our scheme there are none.
+- Considered alternatives: `systemd.volatile=state` (does not make the root
+  writable, grub-btrfs issue #331) and a separate `@var` (breaks the consistency
+  of `/`/`/var`, not needed with overlayfs).
 
-## 4. Поток
+## 4. Flow
 
-1. `make iso` → хук 0500 кладёт в `pool/main` пакеты `timeshift`,
-   `inotify-tools`, `pkexec`, их недостающие зависимости и собранный
+1. `make iso` → hook 0500 places into `pool/main` the packages `timeshift`,
+   `inotify-tools`, `pkexec`, their missing dependencies and the built
    `grub-btrfs`.
-2. Calamares на btrfs: `packages` → `purad-snapshots` (apt install + конфиг +
-   маркер + enable) → `initramfscfg` → `initramfs` (хук overlay попадает в
-   initramfs) → `sources-media-unmount` → `sources-final`.
-3. Первая загрузка установленной системы: `purad-first-snapshot` создаёт
-   снимок, обновляет GRUB, ставит маркер и выключает себя.
-4. Дальше `grub-btrfsd` обновляет меню при новых снимках Timeshift.
-5. Выбор снимка в GRUB → initramfs видит read-only btrfs и поднимает
-   overlayfs → система стартует writable в RAM.
-6. На ext4 шаг 2 ничего не делает; шаги 3–5 не активны.
+2. Calamares on btrfs: `packages` → `purad-snapshots` (apt install + config +
+   marker + enable) → `initramfscfg` → `initramfs` (the overlay hook ends up in
+   the initramfs) → `sources-media-unmount` → `sources-final`.
+3. First boot of the installed system: `purad-first-snapshot` creates the
+   snapshot, updates GRUB, sets the marker and disables itself.
+4. Then `grub-btrfsd` updates the menu when new Timeshift snapshots appear.
+5. Selecting a snapshot in GRUB → initramfs sees a read-only btrfs and brings up
+   overlayfs → the system starts writable in RAM.
+6. On ext4 step 2 does nothing; steps 3–5 are not active.
 
-## 5. Проверка
+## 5. Verification
 
-- **Сборка:** в `pool/main` есть `grub-btrfs_4.14-purad1_all.deb`, `timeshift`,
-  `inotify-tools`, `pkexec`; `Packages`/`Release` содержат их.
-- **Установка на btrfs (qemu):** `dpkg -l timeshift grub-btrfs`; в
-  `/etc/initramfs-tools/{hooks,scripts/local-bottom}/` лежат
-  `grub-btrfs-overlay`; после `update-initramfs` они есть в initramfs
-  (`lsinitramfs`); после первой загрузки `timeshift --list` показывает
-  начальный снимок; в `/boot/grub/` есть `grub-btrfs.cfg`, в `grub.cfg` —
-  пункты снимков; `systemctl status grub-btrfsd` — active;
+- **Build:** `pool/main` contains `grub-btrfs_4.14-purad1_all.deb`, `timeshift`,
+  `inotify-tools`, `pkexec`; `Packages`/`Release` contain them.
+- **Installation on btrfs (qemu):** `dpkg -l timeshift grub-btrfs`; in
+  `/etc/initramfs-tools/{hooks,scripts/local-bottom}/` there is
+  `grub-btrfs-overlay`; after `update-initramfs` they are in the initramfs
+  (`lsinitramfs`); after the first boot `timeshift --list` shows the
+  initial snapshot; in `/boot/grub/` there is `grub-btrfs.cfg`, in `grub.cfg` —
+  snapshot entries; `systemctl status grub-btrfsd` — active;
   `purad-first-snapshot` — done.
-- **Загрузка в снимок (qemu):** выбрать пункт снимка в GRUB;
-  `findmnt -no FSTYPE /` → `overlay`; `mount | grep btrfs` показывает снимок
-  в `lowerdir`; рабочий стол/сессия запускаются; изменения не переживают
-  перезагрузку.
-- **Установка на ext4 (qemu):** `timeshift` и `grub-btrfs` не установлены,
-  initramfs-хуков нет, `grub-btrfsd.service` и
-  `purad-first-snapshot.service` не включены.
+- **Booting into a snapshot (qemu):** select the snapshot entry in GRUB;
+  `findmnt -no FSTYPE /` → `overlay`; `mount | grep btrfs` shows the snapshot
+  in `lowerdir`; the desktop/session starts; changes do not survive a
+  reboot.
+- **Installation on ext4 (qemu):** `timeshift` and `grub-btrfs` are not installed,
+  there are no initramfs hooks, `grub-btrfsd.service` and
+  `purad-first-snapshot.service` are not enabled.
 
-## 6. Ограничения и риски
+## 6. Limitations and risks
 
-- **Снимок без `@home`.** Начальный снимок включает только `@` (система).
-  `@home` не включаем; пользователь может включить это в GUI Timeshift.
-- **Автоматического расписания нет.** Только начальный снимок и ручные.
-- **Overlayfs-хук — из открытого PR #250, не из релиза.** Код GPL-3.0,
-  вендорится с атрибуцией и адаптируется; обязательна проверка на trixie в
-  qemu. Если хук не сработает — фолбэк на отдельный `@var` (отдельная задача).
-- **grub-btrfs — не из Debian.** Явная, локализованная оговорка от принципа
-  «чистый Debian»; версия и исходник зафиксированы.
-- **Timeshift в live-режиме снимки не делает** — это ожидаемо и не лечится.
-- **Повтор первого снимка.** Снимок не дублируется: скрипт ищет комментарий
-  `PuraD: initial snapshot` в `timeshift --list`; если снимок уже есть, а
-  `done`-маркера нет, повторяется только `update-grub`.
+- **Snapshot without `@home`.** The initial snapshot includes only `@` (the system).
+  `@home` is not included; the user can enable this in the Timeshift GUI.
+- **No automatic schedule.** Only the initial snapshot and manual ones.
+- **The overlayfs hook is from open PR #250, not from a release.** The code is GPL-3.0,
+  vendored with attribution and adapted; testing on trixie in
+  qemu is mandatory. If the hook does not work — fallback to a separate `@var` (a separate task).
+- **grub-btrfs is not from Debian.** An explicit, localized caveat from the principle
+  of "clean Debian"; the version and source are pinned.
+- **Timeshift does not create snapshots in live mode** — this is expected and cannot be fixed.
+- **Repeating the first snapshot.** The snapshot is not duplicated: the script searches for the comment
+  `PuraD: initial snapshot` in `timeshift --list`; if the snapshot already exists but
+  the `done` marker is absent, only `update-grub` is repeated.
 
-## 7. Вне скоупа
+## 7. Out of scope
 
-- расписание снимков (hourly/daily/boot) и политика хранения;
-- включение `@home` в снимки;
-- отдельный `@var` (не нужен при overlayfs; только как фолбэк);
-- снимки/восстановление из live-сессии;
-- шифрование (LUKS) и Secure Boot;
-- переименование или брендирование Timeshift;
-- загрузка в снимки, созданные до установки overlayfs-хука.
+- snapshot schedule (hourly/daily/boot) and retention policy;
+- including `@home` in snapshots;
+- a separate `@var` (not needed with overlayfs; only as a fallback);
+- snapshots/restore from a live session;
+- encryption (LUKS) and Secure Boot;
+- renaming or branding Timeshift;
+- booting into snapshots created before the overlayfs hook was installed.

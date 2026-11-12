@@ -1,65 +1,65 @@
-# Снимки btrfs: Timeshift + grub-btrfs — план реализации
+# btrfs snapshots: Timeshift + grub-btrfs — implementation plan
 
-> **Для агентов:** обязательный суб-скилл: `superpowers:executing-plans` (выбрано: реализация в этой сессии). Шаги отмечены чекбоксами.
+> **For agents:** mandatory sub-skill: `superpowers:executing-plans` (chosen: implementation in this session). Steps are marked with checkboxes.
 
-**Цель:** на btrfs-установке PuraD поставить Timeshift и grub-btrfs, создать начальный снимок при первом запуске и обеспечить реальную загрузку в read-only снимок через overlayfs в initramfs.
+**Goal:** on a PuraD btrfs installation, install Timeshift and grub-btrfs, create an initial snapshot on first boot and ensure actual booting into a read-only snapshot via overlayfs in initramfs.
 
-**Архитектура:** при сборке ISO вендоренный grub-btrfs v4.14 собирается в локальный `.deb` и вместе с `timeshift`/`inotify-tools` кладётся в apt-репозиторий на носителе. Calamares-модуль `purad-snapshots` после шага `packages` определяет ФС целевого корня: на ext4 ничего не делает, на btrfs ставит пакеты, пишет конфиг Timeshift, ставит маркер и включает юниты. Первый запуск установленной системы создаёт снимок `@`, обновляет GRUB и выключает себя; загрузка в снимок поднимает overlayfs поверх read-only btrfs.
+**Architecture:** during the ISO build, the vendored grub-btrfs v4.14 is built into a local `.deb` and, together with `timeshift`/`inotify-tools`, placed into the apt repository on the medium. The Calamares module `purad-snapshots` after the `packages` step determines the file system of the target root: on ext4 it does nothing, on btrfs it installs the packages, writes the Timeshift config, sets the marker and enables the units. The first boot of the installed system creates a snapshot of `@`, updates GRUB and disables itself; booting into a snapshot brings up overlayfs on top of read-only btrfs.
 
-**Стек:** Debian trixie, live-build, Calamares 3.3 (Python-модули), systemd, Timeshift 24.06.6, grub-btrfs 4.14, initramfs-tools, overlayfs, btrfs.
+**Stack:** Debian trixie, live-build, Calamares 3.3 (Python modules), systemd, Timeshift 24.06.6, grub-btrfs 4.14, initramfs-tools, overlayfs, btrfs.
 
-**Спек:** `docs/superpowers/specs/2026-11-11-btrfs-timeshift-snapshots-design.md`
+**Spec:** `docs/superpowers/specs/2026-11-11-btrfs-timeshift-snapshots-design.md`
 
-## Глобальные ограничения
+## Global constraints
 
-- Только btrfs: на ext4 не устанавливаются `timeshift`, `grub-btrfs`, не создаются маркеры, не включаются юниты.
-- Начальный снимок включает только `@`; `@home`, `@log`, `@cache` не включаются.
-- Расписание снимков по умолчанию выключено (`schedule_* = "false"`).
-- `timeshift` — из Debian `main`; `grub-btrfs` — вендоренный upstream v4.14, sha256 `4fe2f8a49b39e3e561fc51bbc5a0f81a7222c1e9ef8672e014e0ba3bedad20c6`.
-- Пакет `grub-btrfs` версии `4.14-purad1`, `Architecture: all`, без maintainer-скриптов.
-- Ошибка установки пакетов снимков не прерывает установку: `libcalamares.utils.warning(...)` и продолжение.
-- Конфиг Timeshift использует строковые значения `"true"/"false"` (формат `/etc/timeshift/default.json`).
-- Загрузка в снимок: `findmnt -no FSTYPE /` → `overlay`, снимок остаётся неизменным, изменения в RAM.
+- btrfs only: on ext4, `timeshift`, `grub-btrfs` are not installed, markers are not created, units are not enabled.
+- The initial snapshot includes only `@`; `@home`, `@log`, `@cache` are not included.
+- The snapshot schedule is disabled by default (`schedule_* = "false"`).
+- `timeshift` is from Debian `main`; `grub-btrfs` is the vendored upstream v4.14, sha256 `4fe2f8a49b39e3e561fc51bbc5a0f81a7222c1e9ef8672e014e0ba3bedad20c6`.
+- The `grub-btrfs` package version is `4.14-purad1`, `Architecture: all`, without maintainer scripts.
+- Failure to install the snapshot packages does not interrupt the installation: `libcalamares.utils.warning(...)` and continuation.
+- The Timeshift config uses string values `"true"/"false"` (the format of `/etc/timeshift/default.json`).
+- Booting into a snapshot: `findmnt -no FSTYPE /` → `overlay`, the snapshot remains unchanged, changes are in RAM.
 
-## Фокус ревью
+## Review focus
 
-1. **Повторный снимок при загрузке в снимок.** Если загрузиться в начальный снимок, в нём нет `first-snapshot.done`, а юнит включён. Скрипт обязан увидеть `findmnt -no FSTYPE / = overlay` и выйти, иначе создаст вложенный снимок.
-2. **ext4 не должен получить артефакты.** На ext4 модуль обязан выйти до любых изменений; юниты и initramfs-хуки не должны появляться.
-3. **Сбой установки пакетов не ломает установку.** Отсутствие сети/пакета в локальном репо — предупреждение, а не ошибка Calamares.
-4. **Формат `timeshift.json`.** Булевы значения строками, `backup_device_uuid=""`, `btrfs_mode="true"`, `include_btrfs_home="false"`; иначе Timeshift уйдёт в rsync-режим или потребует устройство.
-5. **Источник apt.** `purad-snapshots` должен ставить пакеты из локального репозитория на носителе, не полагаясь на сеть и не смешивая сетевые `sources.list`.
+1. **Repeated snapshot when booting into a snapshot.** If you boot into the initial snapshot, it has no `first-snapshot.done`, while the unit is enabled. The script must see `findmnt -no FSTYPE / = overlay` and exit, otherwise it will create a nested snapshot.
+2. **ext4 must not get artifacts.** On ext4 the module must exit before any changes; units and initramfs hooks must not appear.
+3. **A package installation failure does not break the installation.** Absence of the network/package in the local repo is a warning, not a Calamares error.
+4. **The `timeshift.json` format.** Boolean values as strings, `backup_device_uuid=""`, `btrfs_mode="true"`, `include_btrfs_home="false"`; otherwise Timeshift will switch into rsync mode or require a device.
+5. **The apt source.** `purad-snapshots` must install packages from the local repository on the medium, without relying on the network and without mixing network `sources.list` files.
 
 ---
 
-## Task 1: Вендоринг grub-btrfs и сборка `.deb`
+## Task 1: Vendoring grub-btrfs and building the `.deb`
 
-**Файлы:**
-- Создать: `vendor/grub-btrfs/grub-btrfs-v4.14.tar.gz`
-- Создать: `vendor/grub-btrfs/README.md`
-- Создать: `vendor/grub-btrfs/build-deb.sh`
-- Создать: `vendor/grub-btrfs/initramfs-tools/hooks/grub-btrfs-overlay`
-- Создать: `vendor/grub-btrfs/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay`
-- Создать: `scripts/test-snapshots-deb.sh`
+**Files:**
+- Create: `vendor/grub-btrfs/grub-btrfs-v4.14.tar.gz`
+- Create: `vendor/grub-btrfs/README.md`
+- Create: `vendor/grub-btrfs/build-deb.sh`
+- Create: `vendor/grub-btrfs/initramfs-tools/hooks/grub-btrfs-overlay`
+- Create: `vendor/grub-btrfs/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay`
+- Create: `scripts/test-snapshots-deb.sh`
 
-**Интерфейсы:**
-- `build-deb.sh <output-dir>` создаёт `<output-dir>/grub-btrfs_4.14-purad1_all.deb`, проверяет sha256 тарбола.
-- Пакет содержит: `/etc/grub.d/41_snapshots-btrfs`, `/etc/default/grub-btrfs/config`, `/usr/bin/grub-btrfsd`, `/usr/lib/systemd/system/grub-btrfsd.service`, man8, doc, два initramfs-скрипта.
+**Interfaces:**
+- `build-deb.sh <output-dir>` creates `<output-dir>/grub-btrfs_4.14-purad1_all.deb`, verifies the tarball's sha256.
+- The package contains: `/etc/grub.d/41_snapshots-btrfs`, `/etc/default/grub-btrfs/config`, `/usr/bin/grub-btrfsd`, `/usr/lib/systemd/system/grub-btrfsd.service`, man8, doc, two initramfs scripts.
 
-- [ ] **Step 1: Написать падающий тест `scripts/test-snapshots-deb.sh`**
+- [ ] **Step 1: Write a failing test `scripts/test-snapshots-deb.sh`**
 
-Тест должен:
-- запустить `vendor/grub-btrfs/build-deb.sh` во временный каталог;
-- проверить `dpkg-deb -f` для `Package: grub-btrfs`, `Version: 4.14-purad1`, `Architecture: all`, `Depends` содержит `btrfs-progs`, `inotify-tools`, `initramfs-tools`;
-- проверить `dpkg-deb -c` для путей `etc/grub.d/41_snapshots-btrfs`, `etc/initramfs-tools/hooks/grub-btrfs-overlay`, `etc/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay`;
-- проверить `sh -n` на обоих initramfs-скриптах;
-- напечатать `PASS`/`FAIL` и вернуть код.
+The test must:
+- run `vendor/grub-btrfs/build-deb.sh` into a temporary directory;
+- check `dpkg-deb -f` for `Package: grub-btrfs`, `Version: 4.14-purad1`, `Architecture: all`, `Depends` contains `btrfs-progs`, `inotify-tools`, `initramfs-tools`;
+- check `dpkg-deb -c` for the paths `etc/grub.d/41_snapshots-btrfs`, `etc/initramfs-tools/hooks/grub-btrfs-overlay`, `etc/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay`;
+- check `sh -n` on both initramfs scripts;
+- print `PASS`/`FAIL` and return a code.
 
-- [ ] **Step 2: Запустить тест и убедиться, что он падает**
+- [ ] **Step 2: Run the test and make sure it fails**
 
 Run: `bash scripts/test-snapshots-deb.sh`
-Expected: FAIL — нет `vendor/grub-btrfs/build-deb.sh`.
+Expected: FAIL — there is no `vendor/grub-btrfs/build-deb.sh`.
 
-- [ ] **Step 3: Скачать и зафиксировать тарбол**
+- [ ] **Step 3: Download and pin the tarball**
 
 Run:
 ```bash
@@ -70,80 +70,80 @@ sha256sum vendor/grub-btrfs/grub-btrfs-v4.14.tar.gz
 ```
 Expected: `4fe2f8a49b39e3e561fc51bbc5a0f81a7222c1e9ef8672e014e0ba3bedad20c6`.
 
-- [ ] **Step 4: Написать `vendor/grub-btrfs/build-deb.sh`**
+- [ ] **Step 4: Write `vendor/grub-btrfs/build-deb.sh`**
 
-Установить файлы вручную (`install -Dm...`), не через `make install` (тот требует root и может вызвать `grub-mkconfig`). Добавить в `/etc/default/grub-btrfs/config` строку, включающую `ro` для снимков:
+Install the files manually (`install -Dm...`), not via `make install` (the latter requires root and may invoke `grub-mkconfig`). Add to `/etc/default/grub-btrfs/config` a line enabling `ro` for snapshots:
 ```sh
 printf '\n# PuraD: boot snapshots read-only; the initramfs overlay makes them writable.\nGRUB_BTRFS_SNAPSHOT_KERNEL_PARAMETERS="ro"\n' >> "$pkgroot/etc/default/grub-btrfs/config"
 ```
-Собрать `dpkg-deb --build --root-owner-group`.
+Build with `dpkg-deb --build --root-owner-group`.
 
-- [ ] **Step 5: Написать initramfs-скрипты (адаптация PR #250)**
+- [ ] **Step 5: Write the initramfs scripts (adaptation of PR #250)**
 
-Хук: `manual_add_modules overlay`, `copy_exec /usr/bin/findmnt /usr/bin`, при наличии — `copy_exec` для `btrfs`.
-Скрипт `local-bottom`: найти `btrfs`/`findmnt` среди `/usr/bin` и `/bin`; проверить `findmnt -no FSTYPE -M "$rootmnt" = btrfs` и `btrfs property get "$rootmnt" ro != ro=false`; при совпадении переместить корень, смонтировать tmpfs и overlayfs; при ошибке вернуть корень на место и продолжить загрузку read-only. Без `set -e`.
+Hook: `manual_add_modules overlay`, `copy_exec /usr/bin/findmnt /usr/bin`, and, if present, `copy_exec` for `btrfs`.
+Script `local-bottom`: find `btrfs`/`findmnt` among `/usr/bin` and `/bin`; check `findmnt -no FSTYPE -M "$rootmnt" = btrfs` and `btrfs property get "$rootmnt" ro != ro=false`; on a match, move the root, mount tmpfs and overlayfs; on error, put the root back and continue booting read-only. Without `set -e`.
 
-- [ ] **Step 6: Написать `vendor/grub-btrfs/README.md`**
+- [ ] **Step 6: Write `vendor/grub-btrfs/README.md`**
 
-Указать: upstream, тег, sha256, лицензию GPL-3.0, происхождение initramfs-скриптов (PR #250, автор Luis Marsano), почему вендорим (в Debian пакета нет, PR не влит), что скрипты адаптированы под usrmerge и Debian initramfs-tools.
+State: upstream, tag, sha256, GPL-3.0 license, provenance of the initramfs scripts (PR #250, author Luis Marsano), why we vendor (there is no package in Debian, the PR is not merged), and that the scripts are adapted for usrmerge and Debian initramfs-tools.
 
-- [ ] **Step 7: Запустить тест и убедиться, что он проходит**
+- [ ] **Step 7: Run the test and make sure it passes**
 
 Run: `bash scripts/test-snapshots-deb.sh`
 Expected: PASS.
 
-- [ ] **Step 8: Коммит**
+- [ ] **Step 8: Commit**
 
 ```bash
 chmod +x vendor/grub-btrfs/build-deb.sh scripts/test-snapshots-deb.sh \
   vendor/grub-btrfs/initramfs-tools/hooks/grub-btrfs-overlay \
   vendor/grub-btrfs/initramfs-tools/scripts/local-bottom/grub-btrfs-overlay
 git add vendor/grub-btrfs scripts/test-snapshots-deb.sh
-git commit -m "vendor: grub-btrfs 4.14 и сборка локального .deb"
+git commit -m "vendor: grub-btrfs 4.14 and building the local .deb"
 ```
 
 ---
 
-## Task 2: Локальный apt-репозиторий — timeshift, inotify-tools, grub-btrfs
+## Task 2: Local apt repository — timeshift, inotify-tools, grub-btrfs
 
-**Файлы:**
-- Изменить: `config/hooks/normal/0500-purad-installer-repo.binary`
-- Изменить: `scripts/build.sh` (копирование `vendor/`, хэш)
+**Files:**
+- Modify: `config/hooks/normal/0500-purad-installer-repo.binary`
+- Modify: `scripts/build.sh` (copying `vendor/`, hash)
 
-**Интерфейсы:**
-- Хук при сборке ISO кладёт в `binary/pool/main` пакеты `timeshift`, `inotify-tools`, `grub-btrfs_4.14-purad1_all.deb` и все недостающие зависимости; индекс `Packages`/`Release` обновляется.
+**Interfaces:**
+- During the ISO build, the hook places into `binary/pool/main` the packages `timeshift`, `inotify-tools`, `grub-btrfs_4.14-purad1_all.deb` and all missing dependencies; the `Packages`/`Release` index is updated.
 
-- [ ] **Step 1: Написать падающую проверку**
+- [ ] **Step 1: Write a failing check**
 
-В `scripts/test-boot.sh` в блоке `--installer` после проверки `REPO_DIR_IDX` добавить проверку:
+In `scripts/test-boot.sh`, in the `--installer` block after the `REPO_DIR_IDX` check, add a check:
 ```bash
 for pkg in timeshift grub-btrfs inotify-tools; do
     grep -q "^Package: ${pkg}$" "${REPO_DIR_IDX}" || \
-        echo "предупреждение: в локальном репозитории нет ${pkg}" >&2
+        echo "warning: local repository has no ${pkg}" >&2
 done
 ```
-Запустить тест на текущем образе: `bash scripts/test-boot.sh --installer` (или только синтаксис: `bash -n scripts/test-boot.sh`). Проверка должна предупредить об отсутствии пакетов.
+Run the test on the current image: `bash scripts/test-boot.sh --installer` (or just the syntax: `bash -n scripts/test-boot.sh`). The check must warn about the missing packages.
 
-- [ ] **Step 2: Изменить хук 0500**
+- [ ] **Step 2: Modify hook 0500**
 
-- Заменить `PACKAGES="grub-pc grub-efi"` на группы, разделённые переводами строк: `grub-pc`, `grub-efi`, `timeshift inotify-tools` (grub-pc и grub-efi конфликтуют, поэтому отдельные прогоны apt).
-- Убрать кэш-гейт `if [ -z "$(find ...)" ]`; выполнять `apt-get update -qq` и `apt-get -y -d install ...` для каждой группы всегда. Уже скачанные `.deb` apt не перекачивает.
-- После загрузки вызвать `sh "${BUILD_DIR}/vendor/grub-btrfs/build-deb.sh" "${CACHE_DIR}/archives"`.
-- Копирование `cp -f "${CACHE_DIR}"/archives/*.deb "${POOL}/"` оставить.
+- Replace `PACKAGES="grub-pc grub-efi"` with groups separated by newlines: `grub-pc`, `grub-efi`, `timeshift inotify-tools` (grub-pc and grub-efi conflict, hence separate apt runs).
+- Remove the cache gate `if [ -z "$(find ...)" ]`; always run `apt-get update -qq` and `apt-get -y -d install ...` for each group. Already downloaded `.deb` files are not re-downloaded by apt.
+- After downloading, invoke `sh "${BUILD_DIR}/vendor/grub-btrfs/build-deb.sh" "${CACHE_DIR}/archives"`.
+- Leave the copying `cp -f "${CACHE_DIR}"/archives/*.deb "${POOL}/"`.
 
-- [ ] **Step 3: Изменить `scripts/build.sh`**
+- [ ] **Step 3: Modify `scripts/build.sh`**
 
-После копирования `profiles` добавить:
+After copying `profiles`, add:
 ```bash
 rm -rf "${WORK_DIR}/vendor"
 cp -a "${REPO_DIR}/vendor" "${WORK_DIR}/vendor"
 ```
-В `BINARY_HASH` добавить `vendor`:
+Add `vendor` to `BINARY_HASH`:
 ```bash
 BINARY_HASH="$(hash_paths config/common config/bootloaders config/includes.binary profiles VERSION vendor)"
 ```
 
-- [ ] **Step 4: Проверить сборку репозитория без полного ISO**
+- [ ] **Step 4: Check the repository build without a full ISO**
 
 ```bash
 mkdir -p builds/trixie/vendor && cp -a vendor/. builds/trixie/vendor/
@@ -152,46 +152,46 @@ podman run --rm --privileged -v "$PWD/builds/trixie:/work:Z" -w /work/binary \
   localhost/purad-builder:trixie \
   sh /work/config/hooks/normal/0500-purad-installer-repo.binary
 ```
-Expected: в `builds/trixie/binary/pool/main` есть `timeshift_*.deb`, `inotify-tools_*.deb`, `grub-btrfs_4.14-purad1_all.deb`; в `dists/trixie/main/binary-amd64/Packages` — записи о них.
+Expected: `builds/trixie/binary/pool/main` contains `timeshift_*.deb`, `inotify-tools_*.deb`, `grub-btrfs_4.14-purad1_all.deb`; `dists/trixie/main/binary-amd64/Packages` contains entries about them.
 
-- [ ] **Step 5: Коммит**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add config/hooks/normal/0500-purad-installer-repo.binary scripts/build.sh scripts/test-boot.sh
-git commit -m "repo: timeshift, inotify-tools и grub-btrfs на носителе"
+git commit -m "repo: timeshift, inotify-tools and grub-btrfs on the medium"
 ```
 
 ---
 
-## Task 3: Calamares-модуль `purad-snapshots`
+## Task 3: Calamares module `purad-snapshots`
 
-**Файлы:**
-- Создать: `config/includes.chroot/usr/lib/x86_64-linux-gnu/calamares/modules/purad-snapshots/main.py`
-- Создать: `.../purad-snapshots/module.desc`
-- Изменить: `config/includes.chroot/etc/calamares/settings.conf`
-- Создать: `scripts/test-snapshots-module.py`
+**Files:**
+- Create: `config/includes.chroot/usr/lib/x86_64-linux-gnu/calamares/modules/purad-snapshots/main.py`
+- Create: `.../purad-snapshots/module.desc`
+- Modify: `config/includes.chroot/etc/calamares/settings.conf`
+- Create: `scripts/test-snapshots-module.py`
 
-**Интерфейсы:**
-- `target_root_fs(root, partitions) -> str`: `"btrfs"`, `"ext4"` или `""`; сначала ищет `partitions[*].mountPoint == "/"`, затем `etc/fstab` с `subvol=/@`.
-- `write_timeshift_config(root)`: пишет `etc/timeshift/timeshift.json` на основе `default.json`.
-- `run()`: на не-btrfs — debug и `None`; на btrfs — apt install, конфиг, маркер, `systemctl enable`.
+**Interfaces:**
+- `target_root_fs(root, partitions) -> str`: `"btrfs"`, `"ext4"` or `""`; first looks for `partitions[*].mountPoint == "/"`, then `etc/fstab` with `subvol=/@`.
+- `write_timeshift_config(root)`: writes `etc/timeshift/timeshift.json` based on `default.json`.
+- `run()`: on non-btrfs — debug and `None`; on btrfs — apt install, config, marker, `systemctl enable`.
 
-- [ ] **Step 1: Написать падающий тест `scripts/test-snapshots-module.py`**
+- [ ] **Step 1: Write a failing test `scripts/test-snapshots-module.py`**
 
-Тест подставляет заглушку `libcalamares` в `sys.modules`, импортирует `main.py` по пути и проверяет:
-- btrfs-раздел → `target_root_fs(...) == "btrfs"`;
-- ext4-раздел → `"ext4"`;
-- без `partitions`, fstab с `subvol=/@` → `"btrfs"`;
-- `write_timeshift_config` пишет `backup_device_uuid == ""`, `btrfs_mode == "true"`, `include_btrfs_home == "false"`, `do_first_run == "false"`, все `schedule_* == "false"`.
+The test substitutes a stub `libcalamares` into `sys.modules`, imports `main.py` by path and checks:
+- a btrfs partition → `target_root_fs(...) == "btrfs"`;
+- an ext4 partition → `"ext4"`;
+- without `partitions`, fstab with `subvol=/@` → `"btrfs"`;
+- `write_timeshift_config` writes `backup_device_uuid == ""`, `btrfs_mode == "true"`, `include_btrfs_home == "false"`, `do_first_run == "false"`, all `schedule_* == "false"`.
 
-- [ ] **Step 2: Запустить тест и убедиться, что он падает**
+- [ ] **Step 2: Run the test and make sure it fails**
 
 Run: `python3 scripts/test-snapshots-module.py`
-Expected: FAIL — модуль ещё не создан.
+Expected: FAIL — the module has not been created yet.
 
-- [ ] **Step 3: Реализовать `main.py`**
+- [ ] **Step 3: Implement `main.py`**
 
-Логика:
+Logic:
 ```python
 def target_root_fs(root, partitions):
     for part in partitions or []:
@@ -210,19 +210,19 @@ def target_root_fs(root, partitions):
     return ""
 ```
 `install_packages(root)`:
-- если существует `etc/apt/sources.list.d/debian-live-media.list`, добавить `-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/debian-live-media.list -o Dir::Etc::sourceparts=-` (ставить только с носителя);
-- `apt-get update`, затем `apt-get install -y --no-install-recommends timeshift grub-btrfs pkexec` через `libcalamares.utils.target_env_call(["/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", ...])`;
-- при ненулевом коде — `RuntimeError`.
+- if `etc/apt/sources.list.d/debian-live-media.list` exists, add `-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/debian-live-media.list -o Dir::Etc::sourceparts=-` (install only from the medium);
+- `apt-get update`, then `apt-get install -y --no-install-recommends timeshift grub-btrfs pkexec` via `libcalamares.utils.target_env_call(["/usr/bin/env", "DEBIAN_FRONTEND=noninteractive", "apt-get", ...])`;
+- on a non-zero code — `RuntimeError`.
 
-`write_timeshift_config(root)` — читает `etc/timeshift/default.json`, обновляет ключи, пишет `timeshift.json`, `chmod 0644`.
+`write_timeshift_config(root)` — reads `etc/timeshift/default.json`, updates the keys, writes `timeshift.json`, `chmod 0644`.
 
-`mark_btrfs(root)` — создаёт пустой `var/lib/purad/btrfs`.
+`mark_btrfs(root)` — creates an empty `var/lib/purad/btrfs`.
 
-`enable_units()` — `systemctl enable purad-first-snapshot.service grub-btrfsd.service`; ошибки — warning.
+`enable_units()` — `systemctl enable purad-first-snapshot.service grub-btrfsd.service`; errors — warning.
 
-`run()` — `try/except`, при любой ошибке `libcalamares.utils.warning(...)`, вернуть `None`.
+`run()` — `try/except`, on any error `libcalamares.utils.warning(...)`, return `None`.
 
-- [ ] **Step 4: Создать `module.desc`**
+- [ ] **Step 4: Create `module.desc`**
 
 ```yaml
 type:       "job"
@@ -232,57 +232,57 @@ script:     "main.py"
 requiredModules: [ "partition", "mount" ]
 ```
 
-- [ ] **Step 5: Добавить модуль в `settings.conf`**
+- [ ] **Step 5: Add the module to `settings.conf`**
 
-После `- packages` добавить `- purad-snapshots` (до `plymouthcfg`/`initramfscfg`/`initramfs`).
-**Важно:** в рабочем дереве уже есть незакоммиченные правки пользователя в `settings.conf` (purad-session) и `docs/PLAN.md`. Перед Task 3 убрать их в stash и вернуть только после коммита Task 5:
+After `- packages` add `- purad-snapshots` (before `plymouthcfg`/`initramfscfg`/`initramfs`).
+**Important:** the working tree already has uncommitted user edits in `settings.conf` (purad-session) and `docs/PLAN.md`. Before Task 3, stash them and restore only after the Task 5 commit:
 ```bash
 git stash push -- config/includes.chroot/etc/calamares/settings.conf docs/PLAN.md
-# ... Task 3, Task 4, Task 5 (правки и коммиты) ...
+# ... Task 3, Task 4, Task 5 (edits and commits) ...
 git stash pop
 ```
 
-- [ ] **Step 6: Запустить тест**
+- [ ] **Step 6: Run the test**
 
 Run: `python3 scripts/test-snapshots-module.py && python3 -m py_compile config/includes.chroot/usr/lib/x86_64-linux-gnu/calamares/modules/purad-snapshots/main.py`
 Expected: PASS.
 
-- [ ] **Step 7: Коммит**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add config/includes.chroot/usr/lib/x86_64-linux-gnu/calamares/modules/purad-snapshots \
   config/includes.chroot/etc/calamares/settings.conf scripts/test-snapshots-module.py
-git commit -m "calamares: модуль purad-snapshots для btrfs"
+git commit -m "calamares: purad-snapshots module for btrfs"
 ```
 
 ---
 
-## Task 4: Первый снимок и grub-btrfsd
+## Task 4: First snapshot and grub-btrfsd
 
-**Файлы:**
-- Создать: `config/includes.chroot/usr/lib/systemd/system/purad-first-snapshot.service`
-- Создать: `config/includes.chroot/usr/lib/purad/first-snapshot`
-- Создать: `config/includes.chroot/etc/systemd/system/grub-btrfsd.service.d/10-purad-timeshift.conf`
+**Files:**
+- Create: `config/includes.chroot/usr/lib/systemd/system/purad-first-snapshot.service`
+- Create: `config/includes.chroot/usr/lib/purad/first-snapshot`
+- Create: `config/includes.chroot/etc/systemd/system/grub-btrfsd.service.d/10-purad-timeshift.conf`
 
-**Интерфейсы:**
-- Юнит `purad-first-snapshot.service` включается только модулем на btrfs; при первом запуске создаёт снимок и выключает себя.
-- Drop-in переопределяет `ExecStart` на `--syslog --timeshift-auto`.
+**Interfaces:**
+- The `purad-first-snapshot.service` unit is enabled only by the module on btrfs; on first boot it creates a snapshot and disables itself.
+- The drop-in overrides `ExecStart` to `--syslog --timeshift-auto`.
 
-- [ ] **Step 1: Написать падающую проверку**
+- [ ] **Step 1: Write a failing check**
 
-Добавить в `scripts/test-snapshots-deb.sh` (или отдельный `scripts/test-snapshots-static.sh`) проверки:
-- `test -f` всех трёх файлов;
-- `sh -n` для `first-snapshot`;
-- `grep -q 'ConditionPathExists=/var/lib/purad/btrfs'` в юните;
-- `grep -q 'timeshift --create --btrfs --scripted --yes'` в скрипте;
-- `grep -q 'findmnt -no FSTYPE /'` в скрипте (защита от вложенного снимка);
-- `grep -q 'ExecStart=/usr/bin/grub-btrfsd --syslog --timeshift-auto'` в drop-in.
+Add to `scripts/test-snapshots-deb.sh` (or a separate `scripts/test-snapshots-static.sh`) checks:
+- `test -f` for all three files;
+- `sh -n` for `first-snapshot`;
+- `grep -q 'ConditionPathExists=/var/lib/purad/btrfs'` in the unit;
+- `grep -q 'timeshift --create --btrfs --scripted --yes'` in the script;
+- `grep -q 'findmnt -no FSTYPE /'` in the script (protection against a nested snapshot);
+- `grep -q 'ExecStart=/usr/bin/grub-btrfsd --syslog --timeshift-auto'` in the drop-in.
 
-- [ ] **Step 2: Запустить и убедиться, что падает**
+- [ ] **Step 2: Run and make sure it fails**
 
-Expected: FAIL — файлов нет.
+Expected: FAIL — the files are absent.
 
-- [ ] **Step 3: Создать юнит**
+- [ ] **Step 3: Create the unit**
 
 ```ini
 [Unit]
@@ -302,7 +302,7 @@ TimeoutStartSec=0
 WantedBy=multi-user.target
 ```
 
-- [ ] **Step 4: Создать `first-snapshot`**
+- [ ] **Step 4: Create `first-snapshot`**
 
 ```sh
 #!/bin/sh
@@ -312,13 +312,13 @@ set -u
 [ -f /var/lib/purad/first-snapshot.done ] && exit 0
 command -v timeshift >/dev/null 2>&1 || exit 0
 
-# Загрузка в снимок: корень — overlayfs. Снимок уже есть, создавать нельзя.
+# Booting into a snapshot: the root is overlayfs. The snapshot already exists, so one must not be created.
 [ "$(findmnt -no FSTYPE / 2>/dev/null)" = "btrfs" ] || exit 0
 
-# Корень должен быть изменяемым btrfs (не read-only снимок).
+# The root must be a mutable btrfs (not a read-only snapshot).
 [ "$(btrfs property get / ro 2>/dev/null)" = "ro=false" ] || exit 0
 
-# Защита от потери маркера: снимок уже создан?
+# Protection against marker loss: has the snapshot already been created?
 if timeshift --list --scripted 2>/dev/null | grep -Fq "PuraD: initial snapshot"; then
     touch /var/lib/purad/first-snapshot.done
     systemctl disable purad-first-snapshot.service >/dev/null 2>&1 || true
@@ -331,7 +331,7 @@ if ! timeshift --create --btrfs --scripted --yes \
     exit 1
 fi
 
-# Меню GRUB с пунктами снимков; ошибка не отменяет уже созданный снимок.
+# GRUB menu with snapshot entries; an error does not cancel the already created snapshot.
 update-grub >/dev/null 2>&1 || echo "purad-first-snapshot: update-grub failed" >&2
 
 touch /var/lib/purad/first-snapshot.done
@@ -339,7 +339,7 @@ systemctl disable purad-first-snapshot.service >/dev/null 2>&1 || true
 exit 0
 ```
 
-- [ ] **Step 5: Создать drop-in**
+- [ ] **Step 5: Create the drop-in**
 
 ```ini
 [Service]
@@ -347,12 +347,12 @@ ExecStart=
 ExecStart=/usr/bin/grub-btrfsd --syslog --timeshift-auto
 ```
 
-- [ ] **Step 6: Запустить проверку**
+- [ ] **Step 6: Run the check**
 
 Run: `bash scripts/test-snapshots-deb.sh`
 Expected: PASS.
 
-- [ ] **Step 7: Коммит**
+- [ ] **Step 7: Commit**
 
 ```bash
 chmod +x config/includes.chroot/usr/lib/purad/first-snapshot
@@ -360,38 +360,38 @@ git add config/includes.chroot/usr/lib/systemd/system/purad-first-snapshot.servi
   config/includes.chroot/usr/lib/purad/first-snapshot \
   config/includes.chroot/etc/systemd/system/grub-btrfsd.service.d/10-purad-timeshift.conf \
   scripts/test-snapshots-deb.sh
-git commit -m "systemd: первый снимок btrfs и grub-btrfsd"
+git commit -m "systemd: first btrfs snapshot and grub-btrfsd"
 ```
 
 ---
 
-## Task 5: Документация
+## Task 5: Documentation
 
-**Файлы:**
-- Изменить: `docs/PLAN.md`
-- Изменить: `README.md`
+**Files:**
+- Modify: `docs/PLAN.md`
+- Modify: `README.md`
 
-- [ ] **Step 1: Добавить этап 10 в `docs/PLAN.md`**
+- [ ] **Step 1: Add stage 10 to `docs/PLAN.md`**
 
-Описать: Timeshift + grub-btrfs только на btrfs; начальный снимок при первом запуске; overlayfs в initramfs для загрузки в снимок; вендоринг grub-btrfs как явная оговорка от «чистого Debian»; отсутствие `@var`; отсутствие расписания по умолчанию.
+Describe: Timeshift + grub-btrfs only on btrfs; initial snapshot on first boot; overlayfs in initramfs for booting into a snapshot; vendoring grub-btrfs as an explicit caveat from "clean Debian"; absence of `@var`; absence of a schedule by default.
 
-- [ ] **Step 2: Добавить раздел в `README.md`**
+- [ ] **Step 2: Add a section to `README.md`**
 
-Пользовательский текст: «Снимки btrfs» — как открыть Timeshift, как загрузиться в снимок из GRUB, что изменения в снимке не сохраняются, что `@home` не входит в начальный снимок.
+User-facing text: "btrfs snapshots" — how to open Timeshift, how to boot into a snapshot from GRUB, that changes in a snapshot are not saved, that `@home` is not included in the initial snapshot.
 
-- [ ] **Step 3: Коммит**
+- [ ] **Step 3: Commit**
 
 ```bash
 git add docs/PLAN.md README.md
-git commit -m "docs: снимки btrfs и загрузка в них"
+git commit -m "docs: btrfs snapshots and booting into them"
 ```
-**Важно:** `docs/PLAN.md` содержит незакоммиченные правки пользователя (purad-session); они должны быть в stash (см. Task 3, Step 5) и вернуться после коммита.
+**Important:** `docs/PLAN.md` contains uncommitted user edits (purad-session); they must be in the stash (see Task 3, Step 5) and restored after the commit.
 
 ---
 
-## Task 6: Интеграционная проверка
+## Task 6: Integration check
 
-- [ ] **Step 1: Быстрые тесты**
+- [ ] **Step 1: Quick tests**
 
 ```bash
 bash scripts/test-snapshots-deb.sh
@@ -400,17 +400,17 @@ python3 -m py_compile config/includes.chroot/usr/lib/x86_64-linux-gnu/calamares/
 bash -n scripts/build.sh scripts/test-boot.sh
 sh -n config/includes.chroot/usr/lib/purad/first-snapshot
 ```
-Expected: всё PASS.
+Expected: everything PASS.
 
-- [ ] **Step 2: Собрать ISO**
+- [ ] **Step 2: Build the ISO**
 
 Run: `make iso TARGET=trixie`
-Expected: сборка завершается; в `builds/trixie/binary/pool/main` есть `timeshift_*.deb`, `inotify-tools_*.deb`, `grub-btrfs_4.14-purad1_all.deb`; в `Packages` — записи о них.
+Expected: the build completes; `builds/trixie/binary/pool/main` contains `timeshift_*.deb`, `inotify-tools_*.deb`, `grub-btrfs_4.14-purad1_all.deb`; `Packages` contains entries about them.
 
-- [ ] **Step 3: Установка на btrfs (qemu)**
+- [ ] **Step 3: Installation on btrfs (qemu)**
 
 Run: `make run-install TARGET=trixie`
-В Calamares: btrfs, установка. После установки:
+In Calamares: btrfs, installation. After installation:
 ```bash
 dpkg -l timeshift grub-btrfs
 ls /etc/initramfs-tools/hooks/grub-btrfs-overlay
@@ -421,24 +421,24 @@ systemctl status purad-first-snapshot --no-pager
 timeshift --list
 grep -c 'timeshift-btrfs' /boot/grub/grub-btrfs.cfg
 ```
-Expected: пакеты установлены; скрипты в initramfs; `grub-btrfsd` active; `purad-first-snapshot` done; `timeshift --list` показывает снимок с комментарием `PuraD: initial snapshot`; в `grub-btrfs.cfg` есть пункт снимка.
+Expected: the packages are installed; the scripts are in the initramfs; `grub-btrfsd` active; `purad-first-snapshot` done; `timeshift --list` shows a snapshot with the comment `PuraD: initial snapshot`; `grub-btrfs.cfg` contains a snapshot entry.
 
-- [ ] **Step 4: Загрузка в снимок (qemu)**
+- [ ] **Step 4: Booting into a snapshot (qemu)**
 
-Перезагрузиться, в меню GRUB выбрать снимок. В системе:
+Reboot, in the GRUB menu select the snapshot. In the system:
 ```bash
 findmnt -no FSTYPE /
 mount | grep -E 'overlay|btrfs'
 ```
-Expected: `overlay`; в `mount` виден `lowerdir` с путём снимка; сессия Plasma запускается; созданный файл исчезает после перезагрузки.
+Expected: `overlay`; `mount` shows `lowerdir` with the snapshot path; the Plasma session starts; a created file disappears after a reboot.
 
-- [ ] **Step 5: Установка на ext4 (qemu)**
+- [ ] **Step 5: Installation on ext4 (qemu)**
 
-Повторить установку с ext4. Expected: `dpkg -l timeshift grub-btrfs` — не установлены; нет initramfs-хуков; `systemctl is-enabled grub-btrfsd purad-first-snapshot` — not-found/disabled; `timeshift` отсутствует.
+Repeat the installation with ext4. Expected: `dpkg -l timeshift grub-btrfs` — not installed; no initramfs hooks; `systemctl is-enabled grub-btrfsd purad-first-snapshot` — not-found/disabled; `timeshift` is absent.
 
-- [ ] **Step 6: Финальный коммит (если были правки по итогам проверки)**
+- [ ] **Step 6: Final commit (if there were edits as a result of the check)**
 
 ```bash
 git add -A
-git commit -m "test: проверки снимков btrfs и загрузки в них"
+git commit -m "test: checks for btrfs snapshots and booting into them"
 ```

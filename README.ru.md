@@ -69,8 +69,7 @@ deked/
 ├── builds/                   # артефакты (в .gitignore)
 └── docs/
     ├── PLAN.md
-    ├── build.md
-    └── checklist-release.md
+    └── superpowers/          # спеки и планы процесса (superpowers)
 ```
 
 ### Ключевые решения
